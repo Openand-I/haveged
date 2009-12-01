@@ -1,0 +1,10 @@
+# Defaults for haveged initscript
+# sourced by /etc/init.d/haveged
+# installed at /etc/default/haveged by the maintainer scripts
+
+#
+# This is a POSIX shell fragment
+#
+
+# Additional options that are passed to the Daemon.
+DAEMON_OPTS=""

@@ -1,0 +1,6 @@
+haveged (0.9-1) unstable; urgency=low
+
+  * Initial release (Closes: #559096)
+
+ -- Steve Kostecke <steve@debian.org>  Tue, 01 Dec 2009 16:00:55 -0500
+

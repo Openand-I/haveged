@@ -1,0 +1,48 @@
+Format-Specification: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?op=file&rev=135
+Name: haveged
+Source: http://www.issihosts.com/haveged/
+X-Debianized-By: Steve Kostecke <steve@debian.org>
+X-Debianized-Date: Tue, 01 Dec 2009 16:00:55 -0500
+
+Copyright: 2009, Gary Wuertz <gary@issiweb.com>
+License: GPL-3+
+
+Files: debian/init.d
+Copyright: 2007, Javier Fernandez-Sanguino <jfs@debian.org>
+
+Files: debian/*
+Copyright: 2009, Steve Kostecke <steve@debian.org>
+License: GPL-3+
+
+Files: nist/dfft.c
+Copyright: Public Domain
+
+Files: nist/mconf.h
+Copyright: 1984, 1987, 1989, 1995, Stephen L. Moshier
+
+Files: nist/packtest.c
+Copyright: 1999, National Institute Of Standards & Technology
+License: other
+ Permission to use, copy, and modify this software without
+ fee is hereby granted, provided that this entire notice is
+ included in all copies of any software which is or includes
+ a copy or modification of this software and in all copies
+ of the supporting documentation for such software.
+
+License: GPL-3+
+ This package is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 3 of the License, or
+ (at your option) any later version.
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this package; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ .
+ On Debian systems, the complete text of the GNU General
+ Public License can be found in `/usr/share/common-licenses/GPL'.

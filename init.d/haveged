@@ -12,7 +12,7 @@ prog="haveged"
 case "$1" in
 start)
   echo -n $"Starting $prog: "
-  /usr/local/sbin/$prog -w 1024 -v 1 && success || failure
+  ./src/$prog -w 1024 -v 1 && success || failure
   RETVAL=$?
   [ "$RETVAL" = 0 ] && touch /var/lock/subsys/$prog
   echo
