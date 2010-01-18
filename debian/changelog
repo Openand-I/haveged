@@ -1,3 +1,16 @@
+haveged (0.9-2) unstable; urgency=low
+
+  * Removed '--' from init script start_daemon line. It was preventing
+    haveged from using the options passed from the default file.
+  * Set '-w 1024' in the defaults file to raise the low water mark and
+    increase the average depth of the entropy pool.
+  * Added build-dep for gcc-4.3 (Closes: #563938). Thanks to Sven Hartge
+    for solving this.
+  * Replaced dh_clean -k with dh_prep (lintian warning)
+  * Updated standards to 3.8.3
+
+ -- Steve Kostecke <steve@kostecke.net>  Sun, 17 Jan 2010 21:34:39 -0500
+
 haveged (0.9-1) unstable; urgency=low
 
   * Initial release (Closes: #559096)

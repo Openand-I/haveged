@@ -223,8 +223,8 @@ static int configure_amd()
 /**
  * Automatic configuration for Intel x86 chips
  *
- * Notes: The "pentium hack" is to use the trace cache size for the data cache
- *        if no data cache value is found.
+ * Notes: The "pentium hack" is to use the trace cache size for the instruction cache
+ *        if no instruction cache value is found.
  *
  *        Recent Intel processor handbooks, hint that a processor may return a
  *        cache descriptor of 0xff to say in effect "buzz-off use leaf 4". My
@@ -281,7 +281,7 @@ static int configure_intel(unsigned int lsfn)
             printf("lookup %x %d %d\n", regs[j], desc[k+1], desc[k+2]);
          }
       if ((i+1)!=n)
-         cpuid(2,p,"confige_intel(2)");
+         cpuid(2,p,"configure_intel(2)");
       }
    if (sizes[0]<sizes[2])	                  // pentium4 hack
       sizes[0] = sizes[2];
@@ -299,11 +299,12 @@ static int configure_intel(unsigned int lsfn)
          if (info.dbcpuid>0)
             printf("type=%d,level=%d,ways=%d,parts=%d,lines=%d,sets=%d: %d\n",
                type,level,ways+1,parts+1,lines+1,p[3]+1,n);
-         switch(type) {
-            case 1:  sizes[1] = n;  break;      // data
-            case 2:  sizes[0] = n;  break;      // instruction
-            case 3:  sizes[2] = n;  break;      // unified
-            }
+         if (level==1)
+            switch(type) {
+               case 1:  sizes[1] = n;  break;      // data
+               case 2:  sizes[0] = n;  break;      // instruction
+               case 3:  sizes[2] = n;  break;      // unified
+               }
          }
       }
    if (info.i_cache<1)

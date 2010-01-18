@@ -32,4 +32,5 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 /usr/local/sbin/haveged
+/usr/local/share/man/man8/haveged.8
 /etc/init.d/haveged

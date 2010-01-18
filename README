@@ -1,6 +1,6 @@
 Haveged, a Linux entropy source
 
-September 2, 2009
+September 7, 2009
 
 INTRODUCTION
 
@@ -35,14 +35,15 @@ provides these features through the "check" make target.
 
 BUILDING haveged
 
-Although this package is intended for CentOS environments, every effort has
-been made to retain the hardware support of the original HAVEGE implementation.
-The package has also been built and used on Debian, Ubuntu, and Gentoo. Some
-adjustment of the start up script may be necessary for non-CentOS environments.
-The configure process uses hardware detection via config.sub or the configure
-"-host" command line argument (see configure.ac for details on supported hardware
-configurations ). The configure "host" variable is used to select in-line assembly
-appropriate to the build target.
+This package is intended for "Enterprise Linux 5" systems (RHEL 5 / CentOS 5 / SL 5),
+but every effort has been made to retain the hardware support of the original
+HAVEGE implementation. This package has also been built and used on Debian, Ubuntu,
+and Gentoo. On sytems other than Enterprise Linux 5, some adjustment of the start up
+script may be necessary. The configure process uses hardware detection via config.sub
+or the configure "-host" command line argument (see configure.ac for details on
+supported hardware configurations ). The configure "host" variable is used to
+select in-line assembly appropriate to the build target, so "cross-compilation"
+should be possible at least in theory.
 
 This package targets the 2.6 kernel and may not work on 2.4 kernels due to
 difference in the random interface between those two kernel versions. The change
@@ -140,4 +141,5 @@ INSTALLATION
 The default install puts the executable in /usr/local/sbin, provides a simple
 init script and a man(8) page. Edit init.d/haveged before the install if you have
 to specify any command line options such as cache size, logging, etc. As mentioned
-above non-CentOS distributions may need to supply an alternate init script.
+above, an alternate init script may be needed on environments other than Enterprise
+Linux 5.

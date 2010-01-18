@@ -2,8 +2,8 @@ Source: haveged
 Section: misc
 Priority: extra
 Maintainer: Steve Kostecke <steve@debian.org>
-Build-Depends: debhelper (>= 7), autotools-dev
-Standards-Version: 3.8.0
+Build-Depends: debhelper (>= 7), autotools-dev, gcc-4.3
+Standards-Version: 3.8.3
 Homepage: http://www.issihosts.com/haveged/
 
 Package: haveged
@@ -13,7 +13,7 @@ Description: A Linux entropy source using the HAVEGE algorithm
  Haveged is a userspace entropy daemon which is not dependent upon the
  standard mechanisms for harvesting randomness for the system entropy
  pool. This is important in systems with high entropy needs or limited
- user interaction.
+ user interaction (e.g. headless servers).
  .
  Haveged uses HAVEGE (HArdware Volatile Entropy Gathering and Expansion)
  to maintain a 1M pool of random bytes used to fill /dev/random

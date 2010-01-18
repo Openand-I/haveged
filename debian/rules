@@ -20,7 +20,10 @@ else
 CROSS= --build $(DEB_BUILD_GNU_TYPE)
 endif
 
+# gcc-4.4 is a problem.
+export CC=/usr/bin/gcc-4.3
 
+CFLAGS='-O0'
 
 config.status: configure
 	dh_testdir
@@ -31,7 +34,7 @@ endif
 ifneq "$(wildcard /usr/share/misc/config.guess)" ""
 	cp -f /usr/share/misc/config.guess config.guess
 endif
-	./configure $(CROSS) --prefix=/usr --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info CFLAGS="$(CFLAGS)" LDFLAGS="-Wl,-z,defs"
+	./configure $(CROSS) --prefix=/usr --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info CFLAGS=$(CFLAGS) LDFLAGS="-Wl,-z,defs" 
 
 
 build: build-stamp
@@ -54,12 +57,12 @@ clean:
 	[ ! -f Makefile ] || $(MAKE) distclean
 	rm -f config.sub config.guess
 
-	dh_clean 
+	dh_clean
 
 install: build
 	dh_testdir
 	dh_testroot
-	dh_clean -k 
+	dh_prep
 	dh_installdirs
 
 	# Add here commands to install the package into debian/haveged.
