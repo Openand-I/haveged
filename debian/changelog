@@ -1,3 +1,12 @@
+haveged (0.9-3) unstable; urgency=low
+
+  * Cleaned up init.d script dependencies: missing $remote_fs (lintian
+    warning), extraneous $named and $network
+  * Added debian/watch file (lintian warning)
+  * Re-enabled STARTTIME= in debian/init.d (Closes: #565755)
+
+ -- Steve Kostecke <steve@debian.org>  Wed, 20 Jan 2010 16:14:22 -0500
+
 haveged (0.9-2) unstable; urgency=low
 
   * Removed '--' from init script start_daemon line. It was preventing

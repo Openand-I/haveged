@@ -24,9 +24,9 @@
 #
 ### BEGIN INIT INFO
 # Provides:          haveged
-# Required-Start:    $network $local_fs
+# Required-Start:    $local_fs $local_fs
 # Required-Stop:
-# Should-Start:      $named
+# Should-Start:     
 # Should-Stop:
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
@@ -58,7 +58,7 @@ DIETIME=10              # Time to wait for the server to die, in seconds
                         # let some servers to die gracefully and
                         # 'restart' will not work
 
-#STARTTIME=2             # Time to wait for the server to start, in seconds
+STARTTIME=2             # Time to wait for the server to start, in seconds
                         # If this value is set each time the server is
                         # started (on start or restart) the script will
                         # stall to try to determine if it is running

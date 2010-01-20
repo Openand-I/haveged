@@ -1,0 +1,6 @@
+version=3
+# This is a variant HTTP format which allows direct specification of
+# the homepage:
+# Homepage  Pattern  [Version  [Action]]
+http://www.issihosts.com/haveged/haveged-([\d\.]*).tar.gz
+
