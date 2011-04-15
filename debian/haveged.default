@@ -1,10 +1,5 @@
-# Defaults for haveged initscript
-# sourced by /etc/init.d/haveged
-# installed at /etc/default/haveged by the maintainer scripts
+# Configuration file for haveged
 
-#
-# This is a POSIX shell fragment
-#
-
-# Additional options that are passed to the Daemon.
-DAEMON_OPTS="-w 1024"
+# Options to pass to haveged:
+#   -w sets low entropy watermark (in bits)
+DAEMON_ARGS="-w 1024"

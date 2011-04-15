@@ -8,7 +8,7 @@ Homepage: http://www.issihosts.com/haveged/
 
 Package: haveged
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: lsb-base (>= 3.2-14), ${shlibs:Depends}, ${misc:Depends}
 Description: Linux entropy source using the HAVEGE algorithm
  Haveged is a userspace entropy daemon which is not dependent upon the
  standard mechanisms for harvesting randomness for the system entropy
