@@ -37,7 +37,9 @@
 #include <linux/random.h>
 #include <errno.h>
 
+#include "haveged.h"
 #include "havege.h"
+//#include "havegecollect.h"
 /**
  * Parameters
  */
@@ -56,24 +58,24 @@ static struct pparams defaults = {
   .sample_out     = "sample",
   .sample_size    = 1024,
   .verbose        = 0,
-  .version        = "1.01",
+  .version        = "1.1",
   .watermark      = "/proc/sys/kernel/random/write_wakeup_threshold"
   };
 struct pparams *params = &defaults;
 /**
  * Prototypes
  */
-void daemonize(struct hperf *perf);
+void daemonize();
 void error_exit(const char *format, ...);
-void get_info(struct hperf *perf);
+void get_info();
 int  get_poolsize(void);
-void run(int poolsize,struct rand_pool_info *output, int *buffer, struct hperf *perf);
+void run(int poolsize,struct rand_pool_info *output, int *buffer);
 void set_watermark(int level);
 void tidy_exit(int signum);
 /**
  * The usual daemon setup
  */
-void daemonize(struct hperf *perf)
+void daemonize()
 {
    FILE *fh;
    openlog(params->daemon, LOG_CONS, LOG_DAEMON);
@@ -107,37 +109,13 @@ void error_exit(const char *format, ...)
 /**
  * Dump static information about the HAVEGE rng
  */
-void get_info(struct hperf *perf)
+void get_info()
 {
-const char *fmt =
-   "%s Configuration\n"
-   "arch:     %s\n"
-   "vendor:   %s %s\n"
-   "i_cache:  %d kb\n"
-   "d_cache:  %d kb\n"
-   "loop_idx: %d\n"
-   "loop_sz:  %d bytes\n";
-const char *fmt2 =
-   "1st fill: %d us\n";
-struct hinfo h;
-char * tune;
-
-ndinfo(&h);
-tune = h.generic? "USING GENERIC TUNING":"";
-if (params->detached!=0) {
-   syslog(LOG_INFO, fmt,params->daemon,h.arch,h.vendor,tune,h.i_cache,h.d_cache,h.loop_idx,h.loop_sz);
-   if (perf!=NULL) {
-      perf->fill = 0;
-      syslog(LOG_INFO, fmt2 ,perf->etime);
-      }
-   }
-else {
-  printf(fmt,params->daemon,h.arch,h.vendor,tune,h.i_cache,h.d_cache,h.loop_idx,h.loop_sz);
-  if (perf!=NULL) {
-    perf->fill = 0;
-    printf(fmt2 , perf->etime);
-    }
-  }
+char buf[2048];
+havege_status(buf);
+if (params->detached != 0)
+   syslog(LOG_INFO, buf);
+else printf(buf);
 }
 /**
  * Get configured poolsize in bits.
@@ -177,7 +155,7 @@ int main(int argc, char **argv)
       "f", "file",      "1", "Sample output file - default: 'sample'",
       "F", "Foreground","1", "0=background daemon,!=0 remain attached",
       "r", "run",       "1", "0=daemon,1=config info,>1=Write <r>KB sample file",
-      "v", "verbose",   "1", "Output level 0=minimal,1=config/fill items",
+      "v", "verbose",   "1", "Output level 0=minimal,1=config/fill info",
       "w", "write",     "1", "Set write_wakeup_threshold [BITS]",
       "h", "help",      "0", "This help"
       };
@@ -240,15 +218,10 @@ int main(int argc, char **argv)
    } while (c!=-1);
    poolsize = get_poolsize();
    if (poolsize>0) {
-      struct hperf hpf, *hp = NULL;
       int nbytes = poolsize/8;
-      if (params->verbose>0) {
-         hpf.fill = 0;
-         hp = &hpf;
-         }
       int  buf[(nbytes+sizeof(int)-1)/sizeof(int)];
       char rb[sizeof(struct rand_pool_info)+nbytes+2];
-      run(poolsize,(struct rand_pool_info *)rb,buf,hp);
+      run(poolsize,(struct rand_pool_info *)rb,buf);
       }
    else error_exit("Couldn't get poolsize");
    exit(0);
@@ -256,23 +229,23 @@ int main(int argc, char **argv)
 /**
  * The meat
  */
-void run(int poolsize, struct rand_pool_info *output, int *buffer, struct hperf *perf)
+void run(int poolsize, struct rand_pool_info *output, int *buffer)
 {
    FILE *fout = NULL;
+   H_RDR h    = havege_state();
    int random_fd = -1;
-   int ct=0,ft=1;
+   int ct=0;int fills=0;
 
-   if (!ndinit(params,perf)) {
-      params->run_level = 1;
+   if (!havege_init(params->i_cache,params->d_cache,params->verbose))
       error_exit("Couldn't initialize HAVEGE rng");
-      }
+   fills = h->havege_fills;
    switch(params->run_level) {
       case 0:
          if (params->foreground==0)
-            daemonize(perf);
+            daemonize();
          else printf ("%s starting up\n", params->daemon);
-         if (params->verbose>0)
-         get_info(perf);
+         if (params->verbose & VERBOSE)
+            get_info();
          if (params->low_water>0)
             set_watermark(params->low_water);
          random_fd = open(params->random_device, O_RDWR);
@@ -280,13 +253,14 @@ void run(int poolsize, struct rand_pool_info *output, int *buffer, struct hperf 
             error_exit("Couldn't open random device: %m");
          break;
       case 1:
-         get_info(perf);
+         get_info();
          return;
       default:
          ct = params->sample_size*1024;
          if (!(fout = fopen (params->sample_out, "wb")))
             error_exit("Cannot open file <%s> for writing.\n", params->sample_out);
          fprintf(stderr, "Writing %d byte sample\n",ct);
+         get_info();
       }
    for(;;) {
       int current,i,nbytes,r;
@@ -305,10 +279,6 @@ void run(int poolsize, struct rand_pool_info *output, int *buffer, struct hperf 
          nbytes = (poolsize  - current)/8;
          }
       else {
-         if (ft) {
-            get_info(perf);
-            ft=0;
-            }
          if (ct<=0) {
             fclose(fout);
             break;
@@ -319,7 +289,7 @@ void run(int poolsize, struct rand_pool_info *output, int *buffer, struct hperf 
       if(nbytes<1)   continue;
       r = (nbytes+sizeof(int)-1)/sizeof(int);
       for(i=0;i<r;i++)
-         buffer[i] = ndrand(perf);
+         buffer[i] = ndrand();
       output->buf_size = nbytes;
       output->entropy_count = nbytes * 8;
       memcpy(output->buf, buffer, output->buf_size);
@@ -331,11 +301,11 @@ void run(int poolsize, struct rand_pool_info *output, int *buffer, struct hperf 
          if (fwrite (output->buf, 1, output->buf_size, fout) == 0)
             error_exit("Cannot write data in file: %m");
          }
-      if (perf!=NULL && perf->fill!=0) {
+      if ((params->verbose & VERBOSE)!=0 && fills != h->havege_fills) {
+         fills = h->havege_fills;
          if (params->detached!=0)
-            syslog(LOG_INFO, "%s fill %d us", params->daemon, perf->etime);
-         else printf("%s fill %d us\n", params->daemon, perf->etime);
-         perf->fill = 0;
+            syslog(LOG_INFO, "%s fill %d us", params->daemon, h->etime);
+         else printf("%s fill %d us\n", params->daemon, h->etime);
          }
       }
 }

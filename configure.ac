@@ -3,7 +3,7 @@
 ## Minimum Autoconf version
 AC_PREREQ(2.61)
 #
-AC_INIT([haveged],[1.01])
+AC_INIT([haveged],[1.1])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE

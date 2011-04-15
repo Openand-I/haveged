@@ -1,5 +1,13 @@
 Haveged, a Linux entropy source
 
+January 11, 2011
+
+The havege algorithm has been improved to better stand up to aggressive compiler
+optimization. The code has also been reorganized to more cleanly separate the
+Linux particulars from the HAVEGE algorithm. The algorithm part has been made
+more portable (at least to the point where a proof of concept builds and runs
+in that portion of the world known as the evil empire.)
+
 January 4, 2011
 
 Clean up of a few unresolved issues in the November update.
@@ -8,7 +16,7 @@ November 28, 2010
 
 Haveged has moved to version 1.0 to celebrate migration to gcc 4.5.1 (and the fix
 of a very nasty gcc bug thanks to Michael "Tired" Riepe). I have also included a
-contrib section in the tarball to contain the applications/fixes from havaged users.
+contrib section in the tarball to contain the applications/fixes from haveged users.
 For now that section contains only some adjusts that may apply to the fedora12
 environment.
 
@@ -128,8 +136,9 @@ Invocation arguments are:
    --data      , -d [] Data cache size [KB]
    --inst      , -i [] Instruction cache size [KB]
    --file      , -f [] Sample output file - default: 'sample'
+   --Foreground, -F [] 0=background daemon,!=0 remain attached,
    --run       , -r [] 0=daemon,1=config info,>1=Write <r>KB sample file
-   --verbose   , -v [] Output level 0=minimal,1=config/fill items
+   --verbose   , -v [] Output level 0=minimal,1=config/fill items,<diagnostics>
    --write     , -w [] Set write_wakeup_threshold [BITS]
    --help      , -h    This help
 
@@ -142,7 +151,8 @@ will be executed, configuration details will be written to stdout, and a "-r"
 sample of output will be written to the sample output file for all "-r" > 1.
 
 A non-zero "-v" option, directions the configuration display to syslog when "-r"
-is zero, and enable cpuid diagnositics otherwise.
+is zero, and display diagnostics otherwise. This option is treated as a bit mask
+of the option flags defined in the havege.h include file.
 
 The "-w" option will set proc/sys/kernel/random/write_wakeup_threshold to the
 given value. This is useful because this threshold is very small on some sytems.
