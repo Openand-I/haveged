@@ -1,3 +1,13 @@
+haveged (1.1-1) UNRELEASED; urgency=low
+
+  [ Sven Hartge ]
+  * New upstream release. (Closes: #563938, #594379)
+  * Build with default gcc. (Closes: #594284)
+  * Correct LSB header, use $remote_fs instead of $local_fs twice.
+    (Closes: #587535)
+
+ -- Jérémy Bobbio <lunar@debian.org>  Fri, 15 Apr 2011 15:39:43 +0200
+
 haveged (0.9-3) unstable; urgency=low
 
   * Cleaned up init.d script dependencies: missing $remote_fs (lintian

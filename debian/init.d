@@ -24,8 +24,8 @@
 #
 ### BEGIN INIT INFO
 # Provides:          haveged
-# Required-Start:    $local_fs $local_fs
-# Required-Stop:
+# Required-Start:    $remote_fs
+# Required-Stop:     $remote_fs
 # Should-Start:     
 # Should-Stop:
 # Default-Start:     2 3 4 5
