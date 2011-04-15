@@ -5,6 +5,8 @@ Maintainer: Steve Kostecke <steve@debian.org>
 Build-Depends: debhelper (>= 7.0.50~), dh-autoreconf
 Standards-Version: 3.9.2
 Homepage: http://www.issihosts.com/haveged/
+Vcs-Git: git://git.debian.org/git/collab-maint/haveged.git
+Vcs-Browser: http://git.debian.org/?p=collab-maint/haveged.git
 
 Package: haveged
 Architecture: linux-any
