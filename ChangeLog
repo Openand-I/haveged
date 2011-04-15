@@ -1,0 +1,32 @@
+v0.9 (Sep 01, 2009)
+ * Refine collection for gcc 4.4 on Intel  i7 (gentoo)
+ * Update auto tune to Intel latest cpuid spec
+ * Add check for cpuid instruction on i386
+ * Add man(8) page
+ * Cleanup check target to build with -Wall
+
+v0.8 (Jul 30, 2009)
+ * Correct pool size related calculations.
+
+v0.7 (May 1, 2009)
+ * More package contents confusion.
+
+v0.6 (Apr 29, 2009)
+ * Correct mix up in package contents
+
+v0.5 (Apr 28, 2009)
+ * Migrated project to GNU build
+
+v04 (Apr 26, 2009)
+ * Fix documentation typos!
+
+v03 (Apr 24, 2009)
+ * Reworked build/test for more general install.
+ * Integrate init script changes from A Bartlett
+
+v02 (Jan 19, 2009)
+ * Reworked daemon with run-time loop tuning.
+ * Submitted to freshmeat
+
+v (Jan 10, 2009)
+ * Original daemon based on libhavege.

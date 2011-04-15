@@ -1,0 +1,118 @@
+.TH haveged 8  "August 28, 2009" "version 0.9" "SYSTEM ADMINISTRATION COMMANDS"
+.SH NAME
+haveged \- Feed kernel random device
+.SH SYNOPSIS
+.B haveged [options]
+.SH DESCRIPTION
+The hardware events that are the ultimate source of any random number sequence
+are pooled by the /dev/random device for later distribution via the device
+interface. The standard mechanism for harvesting randomness for the pool may
+not be sufficient to meet demand, especially on those systems with high needs
+or limited user interaction.
+
+The HAVEGE (HArdware Volatile Entropy Gathering and Expansion) algorithum harvests
+the indirect effects of hardware events on processor state (caches, branch predictors,
+memory translation tables, etc) rather than attempting to extract randomness from
+individual events. The effects of interrupt service on processor state are visible
+from userland as timing variations in program execution speed. Using code designed
+to mostly fill the instruction cache, a data area occupying a large portion of the
+processors data cache, and with the processor time stamp counter as the data input,
+it is possible to construct a calculation that will reliably generate a random
+sequence even on an "idle" system.
+
+Haveged is a daemon that uses HAVEGE to maintain a 1M pool of random bytes used
+to fill /dev/random whenever the supply of random bits in dev/random falls below
+the low water mark of the device. The principle inputs to havaged are the sizes
+of the processor instruction and data caches used to setup the HAVEGE collector.
+The haveged default is a 4kb data cache and a 16kb instruction cache. On machines
+with a cpuid instruction, haveged will attempt to select appropriate values from
+internal tables.
+
+Although CISC architectures appear insensitive to tuning parameters, there is no
+guarantee that manual tuning of daemon may not be required under some circumstances.
+The output of the HAVEGE random number generator should be verified on every
+installation before the daemon is put into production.
+
+.SH OPTIONS
+.TP
+-d nnn, --data=nnn
+Set data cache size to nnn KB. Default is 16 or as determined by cpuid.
+.TP
+-f file, --file=file
+Set sample output file path - default is "sample"
+.TP
+-i nnn, --inst=nnn
+Set instruction cache size to nnn KB. Default is 16 or as determined by cpuid.
+.TP
+-r n, --run=n
+Set run level 0=daemon,1=config info,>1=Write <r>KB sample file
+.TP
+-v n, --verbose=n
+Set output level 0=minimal,1=config/fill items
+.TP
+-w nnn, --write=nnn
+Set write_wakeup_threshold to nnn bits
+.TP
+-?, --help
+This summary of program options.
+.SH DIAGNOSTICS
+The following diagnostics may be issued to stderr upon termination:
+
+Cannot fork into the background
+.RS
+Call to daemon(3) failed.
+
+.RE
+Cannot open file <s> for writing.
+.RS
+Could not open sample file <s> for writing.
+
+.RE
+Cannot write data in file:
+.RS
+Could not write data to the sample file.
+
+.RE
+Couldn't get poolsize.
+.RS
+Unable to read /proc/sys/kernel/random/poolsize
+
+.RE
+Couldn't initialize HAVEGE rng
+.RS
+Invalid data or instruction cache size.
+
+.RE
+Couldn't open random device
+.RS
+Could not open /dev/random for read-write.
+
+.RE
+Couldn't query entropy-level from kernel: error
+.RS
+Call to ioctl(2) failed.
+
+.RE
+Couldn't open PID file <path> for writing
+.RS
+Error writing /var/run/haveged.pid
+
+.RE
+Fail:set_watermark()
+.RS
+Unable to write to /proc/sys/kernel/random/write_wakeup_threshold
+
+.RE
+RNDADDENTROPY failed!
+.RS
+Call to ioctl(2) to add entropy failed
+
+.RE
+Select error
+.RS
+Call to select(2) failed.
+
+.SH AUTHOR
+Gary Wuertz <gary@issiweb.com>
+.SH SEE ALSO
+http://www.issihosts/haveged/

@@ -1,0 +1,145 @@
+Haveged, a Linux entropy source
+
+September 7, 2009
+
+INTRODUCTION
+
+An introduction to haveged can be found at http://www.issihosts.com/haveged/
+
+Linux provides device interfaces (/dev/random and /dev/urandom) to a pool of
+random numbers collected from system interrupt service routines. On some systems,
+especially on those systems with high needs or limited user interaction, the
+standard collection mechanism cannot meet demand. The haveged daemon was created
+to supplement the default harvesting mechanism in those circumstances to maintain
+a minimum supply of random numbers available at all times.
+
+The HAVEGE algorithm uses the indirect effects of unrelated hardware events on
+instruction timing to create the data added to the random pool. The effects are
+measured by reading the processor time-stamp counter into an array and performing
+a calculation heavily dependent upon processor features such as branch predictors
+and data access mechanisms.
+
+The HAVEGE mechanism is implemented in C using in-line assembly only for direct
+hardware access. This means that the compiler used to build haveged has a large
+roll in determining how this mechanism operates in practice. The policy of the
+GNU auto-tools build system is that compiler optimization is controlled by the
+end user. After unsuccessfully fighting that policy for several versions,
+the haveged entropy harvester has been restructured to counteract the effects
+of over-agressive optimization with the understanding that a user override of
+compiler optimization may be necessary under some circumstances.
+
+Tools are provided with the package are provided to test the output of the haveged
+random number generator. Because dilution of the Linux RNG would be extraordinarily
+hard to detect, an untested daemon should not be installed. The build system
+provides these features through the "check" make target.
+
+BUILDING haveged
+
+This package is intended for "Enterprise Linux 5" systems (RHEL 5 / CentOS 5 / SL 5),
+but every effort has been made to retain the hardware support of the original
+HAVEGE implementation. This package has also been built and used on Debian, Ubuntu,
+and Gentoo. On sytems other than Enterprise Linux 5, some adjustment of the start up
+script may be necessary. The configure process uses hardware detection via config.sub
+or the configure "-host" command line argument (see configure.ac for details on
+supported hardware configurations ). The configure "host" variable is used to
+select in-line assembly appropriate to the build target, so "cross-compilation"
+should be possible at least in theory.
+
+This package targets the 2.6 kernel and may not work on 2.4 kernels due to
+difference in the random interface between those two kernel versions. The change
+in the proc file system from pool size expressed in bytes to pool size expressed
+in bits has been taken into account - other changes may be required.
+
+The haveged collection loop is tuned at run-time on those machines that have a
+cpuid instruction. If this tuning is not available, a 'generic' default of 16Kb
+is used and a "generic tuning" warning issued. Cache size can also be specified
+on the command line to override one or both cache sizes. This will be necessary
+where the default tuning does not produce a functional random number generator.
+
+Use of the cpuid mechanism provides another set of challenges. The daemon assumes
+that the cpuid instruction is available on 64 bit x86 architectures and tests
+for its existence in the 32 bit case. The cpuid instruction is absent on some
+x86 architectures or needs to be enabled on others (cyrix). If cpuid is available,
+leaf 2 information is used for cache size determination except on AMD 64 bit where
+leaf 2 is known not to work (the extended function is used instead) or those cases
+where size cannot be determined from the leaf 2 information. In the later case,
+an attempt to get the missing information using leaf 4 is made.
+
+The package provides two test mechanisms for the haveged random number generator
+
+1. A "quick" check based upon and adaptation of the public domain ENT program.
+   The "entest" program uses the ENT sources to subject a sample to the following:
+
+    a) The Chi-Square result must fall within acceptable bounds (>1% and <99 %)
+    b) The entropy/character must exceed a minimum (7.5)
+    c) The arithmetic mean must exceed a minimum (127.0)
+    d) The monte-carlo approximation of PI must lie within error bounds (.5%)
+    e) The Sequential Correlation Coefficient must be below a minimum (.8)
+
+   The program provides a pass-fail indication and an optional display of the
+   results to stdout.
+
+2. An adaptation of the NIST Statistical Test Suite as adapted by Oliver
+   Rochecouste of irisa.fr as part of the original havege project. More that 400
+   tests are performed in a typical run. The program provides as pass-fail
+   indication with detailed results reported in the nist.out file in the
+   nist directory.  You will need sit down with SP800-*.pdf available from the
+   NIST to review the detailed results.
+
+The tests are performed within the build system by ent/test.sh and nist/test.sh.
+By default, only the ent/test.sh is performed. The NIST test suite can be enabled
+as a check target with the configure option "-enable-nistest" so that both tests
+are executed by the check target.
+
+Both scripts function the same way, haveged is run to collect a sample file in
+the test directory which is then analyzed by the test program. A pass-fail return
+is given in both case, additional information is written to stdout. The input
+samples and the nist.out report are deleted by the clean make target.
+
+The tests can also executed from a shell prompt at any time after "make check" by
+executing ent/test.sh or nist/test.sh from the build directory. Command arguments
+to the script are passed on to the haveged invocation, this allows the sample
+size to be adjusted via "-r" or cache sizes to be specified via "-d" and "-i".
+
+Both test mechanism are statistical and even a fully functional random number
+generator will experience occasional failures. It is not uncommon to see one or
+two failures in the NIST suite and the entest will occasionally fail with a small
+sample size (usually the Chi-Square test barks). Early haveged releases used a
+entest sample size of 1MB, this has been increased to 16MB because failures with
+that sample size were all too common. A 16MB sample will also deplete and refill
+the haveged collection area to exercise all buffer logic.
+
+RUNNING haveged
+
+Invocation arguments are:
+
+   --data      , -d [] Data cache size [KB]
+   --inst      , -i [] Instruction cache size [KB]
+   --file      , -f [] Sample output file - default: 'sample'
+   --run       , -r [] 0=daemon,1=config info,>1=Write <r>KB sample file
+   --verbose   , -v [] Output level 0=minimal,1=config/fill items
+   --write     , -w [] Set write_wakeup_threshold [BITS]
+   --help      , -h    This help
+
+The "-d" and "-i" options have been discussed above. The "-f" option is used only
+to provide an alternate file path for "-r" > 1 - see next.
+
+Non-zero "-r" options are used to test the haveged random number generator; The
+random number generator will be configured, the initial data collection pass
+will be executed, configuration details will be written to stdout, and a "-r"
+sample of output will be written to the sample output file for all "-r" > 1.
+
+A non-zero "-v" option, directions the configuration display to syslog when "-r"
+is zero, and enable cpuid diagnositics otherwise.
+
+The "-w" option will set proc/sys/kernel/random/write_wakeup_threshold to the
+given value. This is useful because this threshold is very small on some sytems.
+A minimum of 1024 is recommended.
+
+INSTALLATION
+
+The default install puts the executable in /usr/local/sbin, provides a simple
+init script and a man(8) page. Edit init.d/haveged before the install if you have
+to specify any command line options such as cache size, logging, etc. As mentioned
+above, an alternate init script may be needed on environments other than Enterprise
+Linux 5.
