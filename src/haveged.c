@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2011 Gary Wuertz gary@issiweb.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -43,6 +43,8 @@
  */
 static struct pparams defaults = {
   .daemon         = "haveged",
+  .detached       = 0,
+  .foreground     = 0,
   .d_cache        = 0,
   .i_cache        = 0,
   .run_level      = 0,
@@ -54,7 +56,7 @@ static struct pparams defaults = {
   .sample_out     = "sample",
   .sample_size    = 1024,
   .verbose        = 0,
-  .version        = ".4",
+  .version        = "1.01",
   .watermark      = "/proc/sys/kernel/random/write_wakeup_threshold"
   };
 struct pparams *params = &defaults;
@@ -62,9 +64,9 @@ struct pparams *params = &defaults;
  * Prototypes
  */
 void daemonize(struct hperf *perf);
-void error_exit(char *format, ...);
-void get_info(int lvl,struct hperf *perf);
-int  get_poosize();
+void error_exit(const char *format, ...);
+void get_info(struct hperf *perf);
+int  get_poolsize(void);
 void run(int poolsize,struct rand_pool_info *output, int *buffer, struct hperf *perf);
 void set_watermark(int level);
 void tidy_exit(int signum);
@@ -76,11 +78,6 @@ void daemonize(struct hperf *perf)
    FILE *fh;
    openlog(params->daemon, LOG_CONS, LOG_DAEMON);
    syslog(LOG_NOTICE, "%s starting up", params->daemon);
-   if (params->verbose>0)
-      get_info(0,perf);
-   signal(SIGHUP, tidy_exit);
-   signal(SIGINT, tidy_exit);
-   signal(SIGTERM, tidy_exit);
    if (daemon(0, 0) == -1)
       error_exit("Cannot fork into the background");
    fh = fopen(params->pid_file, "w");
@@ -88,18 +85,19 @@ void daemonize(struct hperf *perf)
       error_exit("Couldn't open PID file \"%s\" for writing: %m.", params->pid_file);
    fprintf(fh, "%i", getpid());
    fclose(fh);
+   params->detached = 1;
 }
 /**
  * Bail....
  */
-void error_exit(char *format, ...)
+void error_exit(const char *format, ...)
 {
    char buffer[4096];
    va_list ap;
    va_start(ap, format);
    vsnprintf(buffer, sizeof(buffer), format, ap);
    va_end(ap);
-   if (params->run_level==0) {
+   if (params->detached!=0) {
       unlink(params->pid_file);
       syslog(LOG_INFO, "%s %s", params->daemon, buffer);
       }
@@ -109,11 +107,9 @@ void error_exit(char *format, ...)
 /**
  * Dump static information about the HAVEGE rng
  */
-void get_info(int lvl,struct hperf *perf)
+void get_info(struct hperf *perf)
 {
-struct hinfo h;
-char *tune;
-char *fmt =
+const char *fmt =
    "%s Configuration\n"
    "arch:     %s\n"
    "vendor:   %s %s\n"
@@ -121,11 +117,14 @@ char *fmt =
    "d_cache:  %d kb\n"
    "loop_idx: %d\n"
    "loop_sz:  %d bytes\n";
-char *fmt2 =
+const char *fmt2 =
    "1st fill: %d us\n";
+struct hinfo h;
+char * tune;
+
 ndinfo(&h);
 tune = h.generic? "USING GENERIC TUNING":"";
-if (lvl==0) {
+if (params->detached!=0) {
    syslog(LOG_INFO, fmt,params->daemon,h.arch,h.vendor,tune,h.i_cache,h.d_cache,h.loop_idx,h.loop_sz);
    if (perf!=NULL) {
       perf->fill = 0;
@@ -134,14 +133,16 @@ if (lvl==0) {
    }
 else {
   printf(fmt,params->daemon,h.arch,h.vendor,tune,h.i_cache,h.d_cache,h.loop_idx,h.loop_sz);
-  if (perf!=NULL)
+  if (perf!=NULL) {
+    perf->fill = 0;
     printf(fmt2 , perf->etime);
+    }
   }
 }
 /**
  * Get configured poolsize in bits.
  */
-int get_poolsize()
+int get_poolsize(void)
 {
    FILE *poolsize_fh,*osrel_fh;
    int max_bits,major,minor;
@@ -171,19 +172,23 @@ int get_poolsize()
 int main(int argc, char **argv)
 {
    static const char* cmds[] = {
-      "d", "data",    "1", "Data cache size [KB]",
-      "i", "inst",    "1", "Instruction cache size [KB]",
-      "f", "file",    "1", "Sample output file - default: 'sample'",
-      "r", "run",     "1", "0=daemon,1=config info,>1=Write <r>KB sample file",
-      "v", "verbose", "1", "Output level 0=minimal,1=config/fill items",
-      "w", "write",   "1", "Set write_wakeup_threshold [BITS]",
-      "h", "help",    "0", "This help"
+      "d", "data",      "1", "Data cache size [KB]",
+      "i", "inst",      "1", "Instruction cache size [KB]",
+      "f", "file",      "1", "Sample output file - default: 'sample'",
+      "F", "Foreground","1", "0=background daemon,!=0 remain attached",
+      "r", "run",       "1", "0=daemon,1=config info,>1=Write <r>KB sample file",
+      "v", "verbose",   "1", "Output level 0=minimal,1=config/fill items",
+      "w", "write",     "1", "Set write_wakeup_threshold [BITS]",
+      "h", "help",      "0", "This help"
       };
    static int nopts = sizeof(cmds)/(4*sizeof(char *));
    struct option long_options[nopts];
    char short_options[1+nopts*2];
    int c,i,j,poolsize;
 
+   signal(SIGHUP, tidy_exit);
+   signal(SIGINT, tidy_exit);
+   signal(SIGTERM, tidy_exit);
    strcpy(short_options,"");
    for(i=j=0;i<nopts;i++,j+=4) {
       long_options[i].name      = cmds[j+1];
@@ -196,6 +201,9 @@ int main(int argc, char **argv)
    do {
       c = getopt_long (argc, argv, short_options, long_options, NULL);
       switch(c) {
+         case 'F':
+            params->foreground = atoi(optarg);
+            break;
          case 'd':
             params->d_cache = atoi(optarg);
             break;
@@ -260,7 +268,11 @@ void run(int poolsize, struct rand_pool_info *output, int *buffer, struct hperf 
       }
    switch(params->run_level) {
       case 0:
-         daemonize(perf);
+         if (params->foreground==0)
+            daemonize(perf);
+         else printf ("%s starting up\n", params->daemon);
+         if (params->verbose>0)
+         get_info(perf);
          if (params->low_water>0)
             set_watermark(params->low_water);
          random_fd = open(params->random_device, O_RDWR);
@@ -268,7 +280,7 @@ void run(int poolsize, struct rand_pool_info *output, int *buffer, struct hperf 
             error_exit("Couldn't open random device: %m");
          break;
       case 1:
-         get_info(1,perf);
+         get_info(perf);
          return;
       default:
          ct = params->sample_size*1024;
@@ -294,7 +306,7 @@ void run(int poolsize, struct rand_pool_info *output, int *buffer, struct hperf 
          }
       else {
          if (ft) {
-            get_info(1,perf);
+            get_info(perf);
             ft=0;
             }
          if (ct<=0) {
@@ -320,7 +332,7 @@ void run(int poolsize, struct rand_pool_info *output, int *buffer, struct hperf 
             error_exit("Cannot write data in file: %m");
          }
       if (perf!=NULL && perf->fill!=0) {
-         if (params->run_level==0)
+         if (params->detached!=0)
             syslog(LOG_INFO, "%s fill %d us", params->daemon, perf->etime);
          else printf("%s fill %d us\n", params->daemon, perf->etime);
          perf->fill = 0;
@@ -346,9 +358,10 @@ void set_watermark(int level)
  */
 void tidy_exit(int signum)
 {
-   if (params->run_level==0) {
+   if (params->detached!=0) {
       unlink(params->pid_file);
-      syslog(LOG_NOTICE, "%s stopping due to signal %d", params->daemon, signum);
+      syslog(LOG_NOTICE, "%s stopping due to signal %d\n", params->daemon, signum);
       }
+   else fprintf(stderr, "%s stopping due to signal %d\n", params->daemon, signum);
    exit(0);
 }

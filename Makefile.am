@@ -8,7 +8,10 @@ initdir       = /etc/init.d
 init_SCRIPTS  = init.d/haveged
 
 # Files to be included in distribution
-EXTRA_DIST    = haveged.spec ent/test.sh ent/entitle.gif init.d/haveged nist/test.sh nist/template9
+EXTRA_DIST    = haveged.spec ent/test.sh ent/entitle.gif init.d/haveged nist/test.sh \
+                nist/template9 contrib/fedora12/fix_initrddir_path.patch \
+                contrib/fedora12/fix_sbin_install_location.patch \
+                contrib/fedora12/haveged.spec contrib/fedora12/README
 
 # Scripts run as check target
 EXTRA_SCRIPTS = ent/test.sh nist/test.sh

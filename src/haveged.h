@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2011 Gary Wuertz gary@issiweb.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -21,6 +21,8 @@
  */
 struct pparams  {
   char  *daemon;          /* Daemon name - default is "haveged"       */
+  int   detached;         /* non-zero of daemonized                   */
+  int   foreground;       /* non-zero if running in foreground        */
   int   run_level;        /* type of run 0=daemon,1=setup,sample kb   */
   int   d_cache;          /* size of data cache (kb)                  */
   int   i_cache;          /* size of instruction cache (kb)           */

@@ -1,5 +1,17 @@
 Haveged, a Linux entropy source
 
+January 4, 2011
+
+Clean up of a few unresolved issues in the November update.
+
+November 28, 2010
+
+Haveged has moved to version 1.0 to celebrate migration to gcc 4.5.1 (and the fix
+of a very nasty gcc bug thanks to Michael "Tired" Riepe). I have also included a
+contrib section in the tarball to contain the applications/fixes from havaged users.
+For now that section contains only some adjusts that may apply to the fedora12
+environment.
+
 September 7, 2009
 
 INTRODUCTION

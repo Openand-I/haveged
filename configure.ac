@@ -3,7 +3,7 @@
 ## Minimum Autoconf version
 AC_PREREQ(2.61)
 #
-AC_INIT([haveged],[0.9])
+AC_INIT([haveged],[1.01])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
@@ -35,6 +35,10 @@ case "$host" in
 
  powerpc-*|pcc-*|powerpc64|ppc64)
     HA_CPPFLAGS="-DHAVE_ISA_PPC"
+ ;;
+
+ sparclite*-*)
+    HA_CPPFLAGS="-DHAVE_ISA_SPACLITE"
  ;;
 
  sparc*-*)
