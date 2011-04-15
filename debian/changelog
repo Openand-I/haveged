@@ -1,10 +1,27 @@
-haveged (1.1-1) UNRELEASED; urgency=low
+haveged (1.1-1) unstable; urgency=low
 
   [ Sven Hartge ]
   * New upstream release. (Closes: #563938, #594379)
   * Build with default gcc. (Closes: #594284)
   * Correct LSB header, use $remote_fs instead of $local_fs twice.
     (Closes: #587535)
+
+  [ Jérémy Bobbio ]
+  * Take over maintenance.
+  * Update debian/copyright.
+  * Use debhelper 7 properly in debian/rules.
+  * Remove useless debian/dirs and empty maintainer scripts.
+  * Don't ship an empty NEWS file.
+  * Remove the article from the start of the short description.
+  * Bump Standards-Version, no changes required.
+  * Rework initscript and default files.
+  * Fix "haveged" casing in extended description.
+  * Switch package source format to 3.0 (quilt).
+  * Implement a generic time retrieval function. (Closes: #576375)
+  * Also test haveged using NIST tests.
+  * Fix Architecture field in debian/control (haveged is Linux only).
+  * Add Vcs-* fields to debian/control.
+  * Add debian/README.source.
 
  -- Jérémy Bobbio <lunar@debian.org>  Fri, 15 Apr 2011 15:39:43 +0200
 
