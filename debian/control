@@ -7,7 +7,7 @@ Standards-Version: 3.9.2
 Homepage: http://www.issihosts.com/haveged/
 
 Package: haveged
-Architecture: any
+Architecture: linux-any
 Depends: lsb-base (>= 3.2-14), ${shlibs:Depends}, ${misc:Depends}
 Description: Linux entropy source using the HAVEGE algorithm
  haveged is a userspace entropy daemon which is not dependent upon the
