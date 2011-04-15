@@ -16,8 +16,13 @@
  ** You should have received a copy of the GNU General Public License
  ** along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef HAVEGEDEF_H
-#define HAVEGEDEF_H
+#ifndef HAVEGECOLLECT_H
+#define HAVEGECOLLECT_H
+/**
+ * These definitions define the environment needed to build havege
+ * using the gcc compiler.
+ */
+#include <sys/time.h>
 /**
  * Hardware constraints
  */
@@ -25,11 +30,13 @@
 #define NDSIZECOLLECT     0x100000 /* 1M   (4MB int)   */
 #define NDSIZECOLLECTx2   0x200000 /* 2x NDSIZECOLLECT */
 #define MININITRAND       32
-#define NBSTEPHIDING      32
 /**
- * Map original compile time constant to local static
+ * Microsecond resolution times use gettimeofday
  */
-#define ANDPT andpt
+#define MSC_DATA          static struct timeval et0,et1;
+#define MSC_ELAPSED()     (et1.tv_sec - et0.tv_sec)*1000000 + et1.tv_usec - et0.tv_usec
+#define MSC_START()       gettimeofday(&et0,NULL)
+#define MSC_STOP()        gettimeofday(&et1,NULL)
 /*
  * Only GNU Compilers need apply
  */
@@ -83,4 +90,10 @@
 #define HARDCLOCK(x) ASM("mov %0=ar.itc" : "=r"(x))
 #define HASCPUID(x) x=1
 #endif
+/**
+ *  Use gcc's "&&" extension to calculate the LOOP_PT
+ */
+#define CODE_PT(a)   a
+#define LOOP_PT(a)   &&loop##a
+
 #endif

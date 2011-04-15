@@ -45,7 +45,8 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(sbindir)"
 sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(sbin_PROGRAMS)
-am_haveged_OBJECTS = haveged.$(OBJEXT) havege.$(OBJEXT)
+am_haveged_OBJECTS = haveged.$(OBJEXT) havege.$(OBJEXT) \
+	havegecollect.$(OBJEXT)
 haveged_OBJECTS = $(am_haveged_OBJECTS)
 haveged_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
@@ -158,7 +159,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CFLAGS = -Wall
 AM_CPPFLAGS = @HA_CPPFLAGS@
-haveged_SOURCES = haveged.c havege.c havegedef.h haveged.h havege.h oneiteration.h loopbody.h
+haveged_SOURCES = haveged.c havege.c havegecollect.c haveged.h havege.h havegecollect.h oneiteration.h
 MAINTAINERCLEANFILES = Makefile.in
 all: all-am
 
@@ -227,6 +228,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/havege.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/havegecollect.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/haveged.Po@am__quote@
 
 .c.o:

@@ -18,35 +18,52 @@
  */
 #ifndef HAVEGE_H
 #define HAVEGE_H
-#include "haveged.h"
 /**
  * Configuration information
  */
 #define GENERIC_DCACHE 16
 #define GENERIC_ICACHE 16
-
-struct hinfo {
-   char  *arch;      // machine architecture ("x86","sparc","ppc","ia64")
-   char  *vendor;    // for x86 architecture only
-   int   generic;    // idication for generic fallback
-   int   i_cache;    // size of instruction cache in kb
-   int   d_cache;    // size of data cache in kb
-   int   loop_idx;   // loop index (1-32)
-   int   loop_sz;    // size of collection loop (bytes)
-   int   etime;      // number of milleseconds required by last collection
-   int   dbcpuid;    // non-zero for cpuid debugging
-};
+#define LOOP_CT 40
 /**
- * Performance monitor
+ * Options flags
  */
-struct hperf {
-   int   fill;       // Set when filled
-   int   etime;      // number of milleseconds required by last collection
+#define VERBOSE         1
+#define DEBUG_CPUID     2
+#define DEBUG_LOOP      4
+#define DEBUG_COMPILE   8
+/**
+ * Debugging definitions
+ */
+#define DEBUG_ENABLED(a) (info.havege_opts & a)!=0
+#define DEBUG_OUT        printf
+/**
+ * Capture environment in an aggregate. Would be nice to use a c++ but that might
+ * limit portablility.
+ */
+struct hinfo {
+   char  *arch;                  // machine architecture ("x86","sparc","ppc","ia64")
+   char  *vendor;                // for x86 architecture only
+   int   generic;                // idication for generic fallback
+   int   i_cache;                // size of instruction cache in kb
+   int   d_cache;                // size of data cache in kb
+   int   loop_idx;               // loop index (1-max)
+   int   loop_idxmax;            // max index for collection loop
+   int   loop_sz;                // size of collection loop (bytes)
+   int   loop_szmax;             // max size of collection loop (bytes)
+   int   etime;                  // number of microseconds required by last collection
+   int   havege_fills;           // number of times buffer has been filled
+   int   havege_ndpt;            // get pointer
+   int   havege_opts;            // option flags
+   int   *havege_buf;            // the collection buffer
 };
+typedef struct hinfo *H_PTR;
+typedef const struct hinfo *H_RDR;
 /**
  * Public prototypes
  */
-int   ndinit(struct pparams *params, struct hperf *perf);
-void  ndinfo(struct hinfo *info);
-int   ndrand (struct hperf *perf);
+void           havege_debug(H_PTR hptr, char ** cpts, int * pts);
+int            havege_init(int icache, int dcache, int flags);
+H_RDR          havege_state(void);
+void           havege_status(char *buf);
+int            ndrand();
 #endif
