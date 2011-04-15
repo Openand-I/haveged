@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2011 Gary Wuertz gary@issiweb.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -34,10 +34,12 @@
  */
 static void collect_ndrand(struct hperf * perf);
 static int configure_ndrand(int icache,int dcache);
-static int configure_hw();
-static int configure_amd();
+static int configure_hw(void);
+#ifdef CPUID
+static int configure_amd(void);
 static int configure_intel(unsigned int lsfn);
 static void cpuid(int fn, unsigned int *p, char * tag);
+#endif
 /**
  * The original HAVEGE implementation relied heavily on compilation details
  * to tailor the mechanism to its environment. HAVEGE depends on hardware
@@ -85,7 +87,7 @@ static int              pt2             = 0;             // see note 1 below
  * of the generated code - and making some of the other auto varibles below volatile
  * will get you a segfault!
  *
- * Note 1: pt2 is an outlier - it is used w/o initialization in one instance but
+ * Note 1: Pt2 is an outlier - it is used w/o initialization in one instance but
  * seems mostly a temporary. It is probably a bug, but let sleeping....
  */
 static void collect_ndrand(struct hperf *perf)
@@ -145,7 +147,7 @@ loop:
  * Initialization of the associated instruction cache mechanism takes place in
  * the first call to collect_ndrand()
  */
-static int configure_ndrand (icache,dcache)
+static int configure_ndrand (int icache, int dcache)
 {
    int offs, *p;
    info.arch      = ARCH;
@@ -169,7 +171,7 @@ static int configure_ndrand (icache,dcache)
  * respected (this method not called if both cache sizes specified)
  */
 #ifdef CPUID
-static int configure_hw()
+static int configure_hw(void)
 {
    unsigned char regs[4*sizeof(int)];
    unsigned int *p = (unsigned int *)regs;
@@ -206,7 +208,7 @@ static int configure_hw()
  *
  * As per AMD document 2541, April 2008
  */
-static int configure_amd()
+static int configure_amd(void)
 {
    unsigned char regs[4*sizeof(int)];
    unsigned int *p = (unsigned int *)regs;
@@ -316,7 +318,7 @@ static int configure_intel(unsigned int lsfn)
    return 0;
 }
 /**
- * Wrapper around the cpuid to assist in debugging
+ * Wrapper around the cpuid macro to assist in debugging
  */
 static void cpuid(int fn, unsigned int *p, char * tag)
 {
@@ -343,7 +345,7 @@ static void cpuid(int fn, unsigned int *p, char * tag)
 /**
  * Auto configuration for processor w/o cpuid
  */
-static int configure_hw()
+static int configure_hw(void)
 {
    if (info.i_cache>0 && info.d_cache>0)
       ;

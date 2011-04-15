@@ -114,6 +114,7 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 SET_MAKE = @SET_MAKE@
@@ -167,6 +168,7 @@ sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
+top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 
@@ -178,7 +180,11 @@ initdir = /etc/init.d
 init_SCRIPTS = init.d/haveged
 
 # Files to be included in distribution
-EXTRA_DIST = haveged.spec ent/test.sh ent/entitle.gif init.d/haveged nist/test.sh nist/template9
+EXTRA_DIST = haveged.spec ent/test.sh ent/entitle.gif init.d/haveged nist/test.sh \
+                nist/template9 contrib/fedora12/fix_initrddir_path.patch \
+                contrib/fedora12/fix_sbin_install_location.patch \
+                contrib/fedora12/haveged.spec contrib/fedora12/README
+
 
 # Scripts run as check target
 EXTRA_SCRIPTS = ent/test.sh nist/test.sh

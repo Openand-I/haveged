@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2011 Gary Wuertz gary@issiweb.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -41,13 +41,16 @@
  * For intel iron, configuration uses the cpuid instruction. This app assumes it
  * is present if this is a 64 bit architecture because the 32 bit test uses the
  * stack and won't fly in 64 bit land.
+ *
+ * N.B. The definition of HARDCLOCK AS 'ASM("rdtsc":"=A"(x))' is incorrect for x86_64
+ * and even documented as such in the gnu assembler doc under machine constraints.
  */
 #ifdef HAVE_ISA_X86
 #define ARCH "x86"
 #define CPUID(op,regs) ASM("xchgl  %%ebx,%0\n\tcpuid  \n\txchgl  %%ebx,%0\n\t"\
   : "+r" (regs[1]), "=a" (regs[0]), "=c" (regs[3]), "=d" (regs[2])\
   : "1" (op), "2" (regs[3]) :  "%ebx")
-#define HARDCLOCK(x) ASM("rdtsc":"=A"(x))
+#define HARDCLOCK(x) ASM("rdtsc;movl %%eax,%0":"=m"(x)::"ax","dx")
 #ifdef HAVE_64
 #define HASCPUID(x)  x=1
 #else
@@ -59,6 +62,12 @@
 #ifdef HAVE_ISA_SPARC
 #define ARCH "sparc"
 #define HARDCLOCK(x) ASM("rd %%tick, %0":"=r"(x):"r"(x))
+#endif
+
+#ifdef HAVE_ISA_SPARCLITE
+#define ARCH "sparclite"
+#define HARDCLOCK(x) ASM(".byte 0x83, 0x41, 0x00, 0x00");\
+  ASM("mov   %%g1, %0" : "=r"(x))
 #endif
 
 #ifdef HAVE_ISA_PPC

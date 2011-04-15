@@ -1,0 +1,13 @@
+Hi Gary,
+
+Your haveged daemon really helped with one of our servers that was severly entropy-starved. To make it easier to deploy i wrote a spec file + patches, for building an RPM out of it.
+
+It wraps up the daemon very plain fashion, but I had to do two minor patches to fix the installation paths to match the Fedora Guidelines, maybe that can be fixed so that it gets the paths in configure so that patching becomes unecessary?
+
+Anyway, please find the attached .spec and patches for haveged-0.9. I have successfully built and installed packages on Fedora 12 from these files, but they are all provided completely as-is, without any guaranees or warranties that they work for anyone else.
+
+Cheers,
+
+-- 
+Henrik Probell
+Tangiamo AB (formerly TouchTable AB) 

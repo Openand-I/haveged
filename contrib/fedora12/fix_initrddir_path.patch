@@ -1,0 +1,11 @@
+--- Makefile.am	2009-08-29 17:22:24.000000000 +0200
++++ /dev/null	2010-10-18 15:36:16.000000000 +0200
+@@ -4,7 +4,7 @@
+ check_SCRIPTS = @HA_CHECK@
+ 
+ # startup script
+-initdir       = /etc/init.d
++initdir       = /etc/rc.d/init.d
+ init_SCRIPTS  = init.d/haveged
+ 
+ # Files to be included in distribution
