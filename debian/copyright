@@ -1,24 +1,28 @@
-Format-Specification: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?op=file&rev=135
-Name: haveged
+Format: http://dep.debian.net/deps/dep5/
+Upstream-Name: haveged
 Source: http://www.issihosts.com/haveged/
-X-Debianized-By: Steve Kostecke <steve@debian.org>
-X-Debianized-Date: Tue, 01 Dec 2009 16:00:55 -0500
 
-Copyright: 2009, Gary Wuertz <gary@issiweb.com>
+Files: *
+Copyright: 2009-2011, Gary Wuertz <gary@issiweb.com>
 License: GPL-3+
 
-Files: debian/init.d
-Copyright: 2007, Javier Fernandez-Sanguino <jfs@debian.org>
-
 Files: debian/*
-Copyright: 2009, Steve Kostecke <steve@debian.org>
+Copyright: 2009-2011, Steve Kostecke <steve@debian.org>
 License: GPL-3+
 
 Files: nist/dfft.c
 Copyright: Public Domain
+License: public-domain
 
 Files: nist/mconf.h
 Copyright: 1984, 1987, 1989, 1995, Stephen L. Moshier
+License: other
+ Some software in this archive may be from the book _Methods and
+ Programs for Mathematical Functions_ (Prentice-Hall or Simon & Schuster
+ International, 1989) or from the Cephes Mathematical Library, a
+ commercial product. In either event, it is copyrighted by the author.
+ What you see here may be used freely but it comes with no support or
+ guarantee.
 
 Files: nist/packtest.c
 Copyright: 1999, National Institute Of Standards & Technology
