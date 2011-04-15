@@ -1,0 +1,13 @@
+README.source for the haveged package
+=====================================
+
+haveged is managed in a Git repository using git-buildpackage using
+pristine-tar. Quilt patches are managed using gbp-pq.
+Packaging practices also follow most of the advices provided by Russ Allbery
+at: http://www.eyrie.org/~eagle/notes/debian/git.html
+
+The branches are organized as follow:
+
+  * upstream: imports of upstream tarballs
+  * patch-queue/*: branches exported to quilt patches (handled by gbp-pq)
+  * master: export of patch-queue/* branches and Debian specific changes
