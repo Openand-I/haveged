@@ -1,1 +1,2 @@
 0001-Add-generic-clock-retrieval-function.patch
+0002-Remove-support-for-CPUID-on-ia64.patch
