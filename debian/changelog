@@ -1,3 +1,10 @@
+haveged (1.1-2) unstable; urgency=low
+
+  * Simplify extended description.
+  * Remove buggy support for CPUID on ia64.
+
+ -- Jérémy Bobbio <lunar@debian.org>  Sun, 24 Apr 2011 21:38:20 +0200
+
 haveged (1.1-1) unstable; urgency=low
 
   [ Sven Hartge ]
