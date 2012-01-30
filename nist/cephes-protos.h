@@ -38,7 +38,7 @@ extern void cmul ( cmplx *a, cmplx *b, cmplx *c );
 extern void cdiv ( cmplx *a, cmplx *b, cmplx *c );
 extern void cmov ( void *a, void *b );
 extern void cneg ( cmplx *a );
-extern double _cabs ( cmplx *z );
+//extern double _cabs ( cmplx *z );
 extern void _csqrt ( cmplx *z, cmplx *w );
 extern double hypot ( double x, double y );
 extern double cosh ( double x );

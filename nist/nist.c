@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include "nist.h"
 
-#define _32MB 32000*1024
-#define _08MB  8000*1024
-#define _04MB  4000*1024
-#define _02MB  2000*1024
+#define _32MB (32 * 1024 * 1024)
+#define _08MB (8  * 1024 * 1024)
+#define _04MB (4  * 1024 * 1024)
+#define _02MB (2  * 1024 * 1024)
 
 
 static int random_pool1 [_32MB];

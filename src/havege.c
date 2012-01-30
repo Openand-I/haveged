@@ -28,13 +28,13 @@
 #include <string.h>
 #include "havege.h"
 #include "havegecollect.h"
+
 /**
  * State
  */
 static struct  hinfo info;                               // configuration
 MSC_DATA;
 
-int havege_collect(volatile H_PTR hptr);
 /**
  ** local prototypes
  */
@@ -54,26 +54,24 @@ static int cache_configure(void)
 {
    unsigned char regs[4*sizeof(int)];
    unsigned int *p = (unsigned int *)regs;
-   int f;
-
+   
    if (info.i_cache>0 && info.d_cache>0)
       return 1;
-   HASCPUID(f);
-   if (f)
-      cpuid(0,p,"cache_configure");
-   else p[0] = 0;
-   switch(p[1]) {
-      case 0x68747541:  info.vendor = "amd";       break;
-      case 0x69727943:  info.vendor = "cyrix";     break;
-      case 0x746e6543:  info.vendor = "centaur";   break;   // aka via
-      case 0x756e6547:  info.vendor = "intel";     break;
-      case 0x646f6547:  info.vendor = "natsemi";   break;
-      case 0x52697365:
-      case 0x65736952:  info.vendor = "rise";      break;   // now owned by sis
-      case 0x20536953:  info.vendor = "sis";       break;
+   if (HASCPUID(p)) {
+     cpuid(0,p,"max info type");
+     switch(p[1]) {
+        case 0x68747541:  info.vendor = "amd";       break;
+        case 0x69727943:  info.vendor = "cyrix";     break;
+        case 0x746e6543:  info.vendor = "centaur";   break;   // aka via
+        case 0x756e6547:  info.vendor = "intel";     break;
+        case 0x646f6547:  info.vendor = "natsemi";   break;
+        case 0x52697365:
+        case 0x65736952:  info.vendor = "rise";      break;   // now owned by sis
+        case 0x20536953:  info.vendor = "sis";       break;
+        default:          info.vendor = "other";     break;
+        }
       }
-   info.arch = ARCH;
-   info.generic = 0;
+   else p[0]  = 0;
    if (!strcmp(info.vendor,"amd") && configure_amd())
       ;
    else if (configure_intel(p[0]))
@@ -179,7 +177,7 @@ static int configure_intel(unsigned int lsfn)
          lines = p[1] & 0xfff;
          parts = (p[1]>>12) & 0x3ff;
          ways  = (p[1]>>22) & 0x3ff;
-         n     = ((ways+1)*(parts+1)*(lines+1)*(p[3]+1))/1024;
+         n     = ((ways+1)*(parts+1)*(lines+1)*(p[2]+1))/1024;
          if (DEBUG_ENABLED(DEBUG_CPUID))
             DEBUG_OUT("type=%d,level=%d,ways=%d,parts=%d,lines=%d,sets=%d: %d\n",
                type,level,ways+1,parts+1,lines+1,p[3]+1,n);
@@ -243,7 +241,7 @@ static int cache_configure(void)
 /**
  * Debug setup code
  */
-void  havege_debug(H_PTR hptr, char **havege_pts, int *pts)
+void  havege_debug(H_PTR hptr, char **havege_pts, unsigned int *pts)
 {
    int i;
 
@@ -263,8 +261,12 @@ void  havege_debug(H_PTR hptr, char **havege_pts, int *pts)
  */
 int havege_init(int icache, int dcache, int flags)
 {
+   info.arch    = ARCH;
+   info.vendor  = "";
+   info.generic = 0;
    info.i_cache = icache;
    info.d_cache = dcache;
+
    info.havege_opts = flags;
    if (cache_configure() && havege_collect(&info)!= 0) {
       const int max = MININITRAND*CRYPTOSIZECOLLECT/NDSIZECOLLECT;
@@ -322,7 +324,7 @@ void havege_status(char *buf)
 /**
  * Main access point
  */
-int ndrand()
+U_INT ndrand()
 {
    if (info.havege_ndpt >= NDSIZECOLLECT) {
       MSC_START();

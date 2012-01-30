@@ -1,4 +1,19 @@
-Haveged, a Linux entropy source
+Haveged, an entropy source
+
+October 23, 2011
+
+Thanks to the contributions of  Jirka Hladky (hladky_dot_jiri_at_gmail_com), haveged
+has been extended to provide a more useful command line interface and provide improved
+performance. The build has been reorganized to allow the command line interface
+to be used without the daemon dependencies. In fact, the daemon interface has
+become optional to the point where mingw can build the distribution on windows.
+See "Building" for additional information.
+
+June 26, 2011
+
+After a long delay, more work towards using intrinsics to make the build more
+reliable. Also went another round with gcc optimization and am planing monitoring
+extensions for the near future.
 
 January 11, 2011
 
@@ -55,20 +70,15 @@ provides these features through the "check" make target.
 
 BUILDING haveged
 
-This package is intended for "Enterprise Linux 5" systems (RHEL 5 / CentOS 5 / SL 5),
+This package originated on "Enterprise Linux 5" systems (RHEL 5 / CentOS 5 / SL 5),
 but every effort has been made to retain the hardware support of the original
 HAVEGE implementation. This package has also been built and used on Debian, Ubuntu,
-and Gentoo. On sytems other than Enterprise Linux 5, some adjustment of the start up
+and Gentoo. On systems other than Enterprise Linux 5, some adjustment of the start up
 script may be necessary. The configure process uses hardware detection via config.sub
 or the configure "-host" command line argument (see configure.ac for details on
 supported hardware configurations ). The configure "host" variable is used to
-select in-line assembly appropriate to the build target, so "cross-compilation"
-should be possible at least in theory.
-
-This package targets the 2.6 kernel and may not work on 2.4 kernels due to
-difference in the random interface between those two kernel versions. The change
-in the proc file system from pool size expressed in bytes to pool size expressed
-in bits has been taken into account - other changes may be required.
+select in-line assembly or compiler intrisics appropriate to the build target,
+so "cross-compilation" should be possible at least in theory.
 
 The haveged collection loop is tuned at run-time on those machines that have a
 cpuid instruction. If this tuning is not available, a 'generic' default of 16Kb
@@ -76,7 +86,7 @@ is used and a "generic tuning" warning issued. Cache size can also be specified
 on the command line to override one or both cache sizes. This will be necessary
 where the default tuning does not produce a functional random number generator.
 
-Use of the cpuid mechanism provides another set of challenges. The daemon assumes
+Use of the cpuid mechanism provides another set of challenges. Haveged assumes
 that the cpuid instruction is available on 64 bit x86 architectures and tests
 for its existence in the 32 bit case. The cpuid instruction is absent on some
 x86 architectures or needs to be enabled on others (cyrix). If cpuid is available,
@@ -84,6 +94,20 @@ leaf 2 information is used for cache size determination except on AMD 64 bit whe
 leaf 2 is known not to work (the extended function is used instead) or those cases
 where size cannot be determined from the leaf 2 information. In the later case,
 an attempt to get the missing information using leaf 4 is made.
+
+The collection loop provides both a file system interface and a daemon interface
+the /dev/random. The daemon interface targets the 2.6 kernel and may not work on
+2.4 kernels due to difference in the random interface between those two kernel
+versions. The change in the proc file system from pool size expressed in bytes to
+pool size expressed in bits has been taken into account - other changes may be
+required. The file system interface supports file creation of up data setups up
+to 16tb or can be part of a piped command set. See the man file for examples.
+
+For environments where access to /dev/random is not available or not needed,
+haveged can be limited to ordinary file system access. This option is controlled
+by the "--enable-daemon" argument to "./configure" - see "./configure --help"
+for details. The enable-daemon option defaults to "no" if configure does not
+detect a "linux" build environment.
 
 The package provides two test mechanisms for the haveged random number generator
 
@@ -131,16 +155,27 @@ the haveged collection area to exercise all buffer logic.
 
 RUNNING haveged
 
-Invocation arguments are:
+Invocation arguments when the daemon interface is enabled are:
 
    --data      , -d [] Data cache size [KB]
    --inst      , -i [] Instruction cache size [KB]
-   --file      , -f [] Sample output file - default: 'sample'
+   --file      , -f [] Sample output file - default: 'sample', use '-' for stdout
    --Foreground, -F [] 0=background daemon,!=0 remain attached,
+   --number    , -n [] Write to file, units can be k, m, g, t. Use 0 for unlimited
    --run       , -r [] 0=daemon,1=config info,>1=Write <r>KB sample file
    --verbose   , -v [] Output level 0=minimal,1=config/fill items,<diagnostics>
    --write     , -w [] Set write_wakeup_threshold [BITS]
    --help      , -h    This help
+
+Invocation arguments when the daemon interface is suppressed are:
+
+   --data      , -d [] Data cache size [KB]
+   --inst      , -i [] Instruction cache size [KB]
+   --file      , -f [] Sample output file - default: 'sample', use '-' for stdout
+   --number    , -n [] Write to file, units can be k, m, g, t. Use 0 for unlimited
+   --verbose   , -v [] Output level 0=minimal,1=config/fill items,<diagnostics>
+   --help      , -h    This help
+
 
 The "-d" and "-i" options have been discussed above. The "-f" option is used only
 to provide an alternate file path for "-r" > 1 - see next.
@@ -148,7 +183,11 @@ to provide an alternate file path for "-r" > 1 - see next.
 Non-zero "-r" options are used to test the haveged random number generator; The
 random number generator will be configured, the initial data collection pass
 will be executed, configuration details will be written to stdout, and a "-r"
-sample of output will be written to the sample output file for all "-r" > 1.
+KB sample of output will be written to the sample output file for all "-r" > 1.
+This last case is deprecated in favor of "-n"
+
+The "-n" option is the preferred method to specify a file system size and
+insures file system output.
 
 A non-zero "-v" option, directions the configuration display to syslog when "-r"
 is zero, and display diagnostics otherwise. This option is treated as a bit mask
@@ -164,4 +203,9 @@ The default install puts the executable in /usr/local/sbin, provides a simple
 init script and a man(8) page. Edit init.d/haveged before the install if you have
 to specify any command line options such as cache size, logging, etc. As mentioned
 above, an alternate init script may be needed on environments other than Enterprise
-Linux 5.
+Linux 5. Several alternative init scripts can be found in the contrib folder
+of the distribution.
+
+No special install is currently provided for non-daemon builds. You should not
+use the default.
+

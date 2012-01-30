@@ -1,37 +1,41 @@
-.TH haveged 8  "August 28, 2009" "version 0.9" "SYSTEM ADMINISTRATION COMMANDS"
+.TH haveged 8  "October 23, 2011" "version 1.3" "SYSTEM ADMINISTRATION COMMANDS"
 .SH NAME
-haveged \- Feed kernel random device
+haveged \- Generate random numbers and feed linux random device.
 .SH SYNOPSIS
 .B haveged [options]
 .SH DESCRIPTION
-The hardware events that are the ultimate source of any random number sequence
-are pooled by the /dev/random device for later distribution via the device
-interface. The standard mechanism for harvesting randomness for the pool may
-not be sufficient to meet demand, especially on those systems with high needs
-or limited user interaction.
-
 The HAVEGE (HArdware Volatile Entropy Gathering and Expansion) algorithum harvests
-the indirect effects of hardware events on processor state (caches, branch predictors,
-memory translation tables, etc) rather than attempting to extract randomness from
-individual events. The effects of interrupt service on processor state are visible
-from userland as timing variations in program execution speed. Using code designed
-to mostly fill the instruction cache, a data area occupying a large portion of the
-processors data cache, and with the processor time stamp counter as the data input,
-it is possible to construct a calculation that will reliably generate a random
-sequence even on an "idle" system.
+the indirect effects of hardware events on hidden processor state (caches,
+branch predictors, memory translation tables, etc) to generate a random sequence. 
+The effects of interrupt service on processor state are visible from
+userland as timing variations in program execution speed. Using a branch-rich
+calculation that fills the processor instruction and data cache, a high resolution
+timer source such as the processor time stamp counter can generate a random sequence
+even on an "idle" system.
 
-Haveged is a daemon that uses HAVEGE to maintain a 1M pool of random bytes used
-to fill /dev/random whenever the supply of random bits in dev/random falls below
-the low water mark of the device. The principle inputs to havaged are the sizes
-of the processor instruction and data caches used to setup the HAVEGE collector.
-The haveged default is a 4kb data cache and a 16kb instruction cache. On machines
-with a cpuid instruction, haveged will attempt to select appropriate values from
+In Linux, the hardware events that are the ultimate source of any random number
+sequence are pooled by the /dev/random device for later distribution via the
+device interface. The standard mechanism of harvesting randomness for the pool
+may not be sufficient to meet demand, especially on those systems with high needs
+or limited user interaction. Haveged provides a daemon  to fill /dev/random
+whenever the supply of random bits in /dev/random falls below the low water mark
+of the device.
+
+Haveged also provides a direct file system interface to the collection mechanism
+that is also useful in other circumstances where access to the dev/random interface
+is either not available or inappropriate.
+
+In either case, haveged uses HAVEGE to maintain a 1M pool of random bytes consumed
+by the interface. The principle inputs to havaged are the sizes of the processor
+instruction and data caches used to setup the HAVEGE collector. The haveged default
+is a 4kb data cache and a 16kb instruction cache. On machines with a cpuid instruction,
+haveged will attempt to select appropriate values from
 internal tables.
 
-Although CISC architectures appear insensitive to tuning parameters, there is no
-guarantee that manual tuning of daemon may not be required under some circumstances.
-The output of the HAVEGE random number generator should be verified on every
-installation before the daemon is put into production.
+Although CISC architectures appear insensitive to tuning parameters, there is
+no guarantee that manual tuning of the algorithm may not be required under some
+circumstances. The output of the HAVEGE random number generator should be verified
+on any installation before the haveged is put into production.
 
 .SH OPTIONS
 .TP
@@ -39,22 +43,41 @@ installation before the daemon is put into production.
 Set data cache size to nnn KB. Default is 16 or as determined by cpuid.
 .TP
 -f file, --file=file
-Set sample output file path - default is "sample"
+Set output file path for non-daemon use. Default is "sample",
+use '-' for stdout.
 .TP
 -i nnn, --inst=nnn
 Set instruction cache size to nnn KB. Default is 16 or as determined by cpuid.
 .TP
+-n nnn, --number=nnn
+Set number of bytes written to the outputfile. The value may be specified using one
+of the suffixes k, m, g, or t. The upper bound of this value is "16t" (2^44 Bytes = 16TB).
+A value of 0 indicates unbounded output and forces output to stdout.
+.TP
 -r n, --run=n
-Set run level 0=daemon,1=config info,>1=Write <r>KB sample file
+Set run level for daemon interface:
+.RS
+.P
+n = 0 Run as daemon - must be root. Fills /dev/random when the supply of random bits
+ falls below the low water mark of the device. This argument is required if the
+ daemon interface is not present. If the daemon interface is present, this takes
+ precedence over any -r value.
+.P
+n = 1 Display configuration info and terminate.
+.P
+n > 1 Write <n> kb of output. Deprecated (use -n instead), only provided for backward
+compatibility.
+.RE
 .TP
 -v n, --verbose=n
-Set output level 0=minimal,1=config/fill items
+Set output level 0=minimal, 1=config/fill items, use -1 for all diagnostics.
 .TP
 -w nnn, --write=nnn
-Set write_wakeup_threshold to nnn bits
+Set write_wakeup_threshold of daemon interface to nnn bits. Applies only to run level 0.
 .TP
 -?, --help
 This summary of program options.
+
 .SH DIAGNOSTICS
 The following diagnostics may be issued to stderr upon termination:
 
@@ -112,7 +135,37 @@ Select error
 .RS
 Call to select(2) failed.
 
+.SH EXAMPLES
+.TP
+Write 1.5MB of random data to the file /tmp/random
+haveged -n 1.5M -f /tmp/random
+.TP
+Generate a /tmp/keyfile for disk encryption with LUKS
+haveged -n 2048 -f /tmp/keyfile
+.TP
+Overwrite partition /dev/sda1 with random data. Be careful, all data on the partition will be lost!
+haveged -n 0 | dd of=/dev/sda1
+.TP
+Generate random ASCII passwords of the length 16 characters
+(haveged -n 1000 -f - 2>/dev/null | tr -cd '[:graph:]' | fold -w 16 && echo ) | head
+.TP
+Write endless stream of random bytes to the pipe. Utility pv measures the speed by which data are written to the pipe.
+haveged -n 0 | pv > /dev/null
+.TP
+Evaluate speed of haveged to generate 1GB of random data
+haveged -n 1g -f - | dd of=/dev/null
+.TP
+Create a random key file containing 65 random keys for the encryption program aespipe.
+haveged -n 3705 -f - 2>/dev/null | uuencode -m - | head -n 66 | tail -n 65
+.TP
+Test the randomness of the generated data with dieharder test suite
+haveged -n 0 | dieharder -g 200 -a
+
+.SH SEE ALSO
+.TP
+cryptsetup(8), aespipe(1), pv(1), openssl(1), uuencode(1)
+
 .SH AUTHOR
-Gary Wuertz <gary@issiweb.com>
+Gary Wuertz <gary@issiweb.com> and Jirka Hladky
 .SH SEE ALSO
 http://www.issihosts/haveged/

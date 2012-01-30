@@ -54,30 +54,41 @@ typedef void volatile * VVAR;
                                  default:  goto loop_exit; \
                                  } \
                               }
+#if 0
+#define ROR32(value,shift)   ((value >> (shift)) | (value << (32-shift)))
+#else
+inline U_INT ror32(const U_INT value, const U_INT shift) {
+   return (value >> shift) | (value << (32 - shift));
+}
+#define ROR32(value,shift) ror32(value, shift)
+#endif
+
 /**
  * Significant variables used in the calculation. The data is declared local to this
  * compile unit but referenced by havege_df() to ensure that a clever optimizer does
  * not decide to ignore the volatile because a variable only has local access.
  */
-static volatile int  havege_bigarray [NDSIZECOLLECT + 16384];
-static volatile int  havege_andpt;
-static volatile int  havege_hardtick;
-static volatile int  loop_idx = LOOP_CT+1;
-static volatile int  *havege_pwalk;
+static volatile U_INT  havege_bigarray [NDSIZECOLLECT + 16384];
+static volatile U_INT  havege_andpt;
+static volatile U_INT  havege_hardtick;
+static volatile U_INT  loop_idx = LOOP_CT+1;
+static volatile U_INT  *havege_pwalk;
 static volatile char *havege_pts[LOOP_CT+1];
-static volatile int  *Pt0;
-static volatile int  *Pt1;
-static volatile int  *Pt2;
-static volatile int  *Pt3;
-static volatile int   PT;
-static volatile int   PT2;
-static volatile int   pt2;
-static volatile int   PTtest;
+static volatile U_INT  *Pt0;
+static volatile U_INT  *Pt1;
+static volatile U_INT  *Pt2;
+static volatile U_INT  *Pt3;
+static volatile U_INT   PT;
+static volatile U_INT   PT2;
+static volatile U_INT   pt2;
+static volatile U_INT   PTtest;
 /**
  * Local prototypes
  */
-static int           havege_sp(int i, int n, char *p);
-static volatile int *havege_tune(H_PTR h);
+// int havege_collect(volatile H_PTR hptr) __attribute__((optimize(1)));
+
+static U_INT           havege_sp(U_INT i, U_INT n, char *p);
+static volatile U_INT *havege_tune(H_PTR h);
 /**
  * The collection loop is constructed by repetitions of oneinteration.h with the
  * number of repetitions tailored to the size of the instruction cache. The use
@@ -85,10 +96,10 @@ static volatile int *havege_tune(H_PTR h);
  * operations for an iteration but DOES NOT prevent compiler optimization of a
  * sequence of interations.
  */
-int havege_collect(volatile H_PTR hptr)
+U_INT havege_collect(volatile H_PTR hptr)
 {
-   volatile int * RESULT = havege_bigarray;
-   int i=0,pt=0,inter=0;
+   volatile U_INT * RESULT = havege_bigarray;
+   U_INT i=0,pt=0,inter=0;
 
 LOOP(40,39)
    #include "oneiteration.h"
@@ -208,11 +219,11 @@ VVAR *havege_df()
  * sequence. This happens for all points on the collection pass and only for
  * the terminating point thereafter.
  */
-static int havege_sp(int i, int n,char *p)
+static U_INT havege_sp(U_INT i, U_INT n,char *p)
 {
    if (loop_idx < LOOP_CT)
       return i < NDSIZECOLLECT? 1 : 2;
-   havege_pts[(int)n] = CODE_PT(p);
+   havege_pts[n] = CODE_PT(p);
    if (n==0) loop_idx = 0;
    return 0;
 }
@@ -221,12 +232,12 @@ static int havege_sp(int i, int n,char *p)
  * based on the instruction cache and allocate the walk array based on the size
  * of the data cache.
  */
-static volatile int *havege_tune(H_PTR hptr)
+static volatile U_INT *havege_tune(H_PTR hptr)
 {
-   int offsets[LOOP_CT+1];
-   int i,offs,*p,sz;
+   U_INT offsets[LOOP_CT+1];
+   U_INT i,offs,*p,sz;
 
-   hptr->havege_buf = (int *)havege_bigarray;
+   hptr->havege_buf = (U_INT *)havege_bigarray;
    for (i=0;i<=LOOP_CT;i++)
       offsets[i] = abs(havege_pts[i]-havege_pts[LOOP_CT]);
    havege_debug(hptr, (char **)havege_pts, offsets);
@@ -241,7 +252,7 @@ static volatile int *havege_tune(H_PTR hptr)
    hptr->loop_idx = loop_idx = ++i;
    hptr->loop_sz  = offsets[i];
    ANDPT = ((2*hptr->d_cache*1024)/sizeof(int))-1;
-   p    = (int *) malloc((ANDPT + 4097)*sizeof(int));
-   offs = (int)((((long)&p[4096])&0xfff)/sizeof(int));
+   p    = (U_INT *) malloc((ANDPT + 4097)*sizeof(int));
+   offs = (U_INT)((((unsigned long)&p[4096])&0xfff)/sizeof(int));
    return &p[4096-offs];
 }
