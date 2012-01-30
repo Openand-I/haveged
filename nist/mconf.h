@@ -65,7 +65,7 @@ Copyright 1984, 1987, 1989, 1995 by Stephen L. Moshier
 
 /* Constant definitions for math error conditions
  */
-
+#ifndef DOMAIN
 #define DOMAIN          1       /* argument domain error */
 #define SING            2       /* argument singularity */
 #define OVERFLOW        3       /* overflow range error */
@@ -75,6 +75,7 @@ Copyright 1984, 1987, 1989, 1995 by Stephen L. Moshier
 
 #define EDOM            33
 #define ERANGE          34
+#endif
 
 /* Complex numeral.  */
 typedef struct

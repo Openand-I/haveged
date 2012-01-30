@@ -1,4 +1,4 @@
 #!/bin/sh
 cd nist
-../src/haveged -r16384 $*
+../src/haveged -n 16M $*
 ./nist sample

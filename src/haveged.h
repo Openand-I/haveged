@@ -20,20 +20,25 @@
  * Settings - default values declared in haveged.c
  */
 struct pparams  {
-  char  *daemon;          /* Daemon name - default is "haveged"       */
-  int   detached;         /* non-zero of daemonized                   */
-  int   foreground;       /* non-zero if running in foreground        */
-  int   run_level;        /* type of run 0=daemon,1=setup,sample kb   */
-  int   d_cache;          /* size of data cache (kb)                  */
-  int   i_cache;          /* size of instruction cache (kb)           */
-  int   low_water;        /* write threshold to set - 0 for none      */
-  char  *os_rel;          /* path to operating sytem release          */
-  char  *pid_file;        /* name of pid file                         */
-  char  *poolsize;        /* path to poolsize                         */
-  char  *random_device;   /* path to random device                    */
-  char  *sample_out;      /* path to sample file                      */
-  int   sample_size;      /* size of sample (kb)                      */
-  int   verbose;          /* Output level for log or stdout           */
-  char  *version;         /* Our version                              */
-  char  *watermark;       /* path to write_wakeup_threshold           */
+  char  *daemon;          /* Daemon name - default is "haveged"           */
+  int   detached;         /* non-zero of daemonized                       */
+  int   foreground;       /* non-zero if running in foreground            */
+  int   run_level;        /* type of run 0=daemon,1=setup,2=pip,sample kb */
+  int   d_cache;          /* size of data cache (kb)                      */
+  int   i_cache;          /* size of instruction cache (kb)               */
+  int   low_water;        /* write threshold to set - 0 for none          */
+  char  *os_rel;          /* path to operating sytem release              */
+  char  *pid_file;        /* name of pid file                             */
+  char  *poolsize;        /* path to poolsize                             */
+  char  *random_device;   /* path to random device                        */
+  char  *sample_out;      /* path to sample file                          */
+  int   sample_size;      /* size of sample (kb)                          */
+  int   verbose;          /* Output level for log or stdout               */
+  char  *version;         /* Our version                                  */
+  char  *watermark;       /* path to write_wakeup_threshold               */
+  int   write_to_stdout;  /* write random bytes directly to stdout        */   
   };
+/**
+ * Buffer size used when not running as daemon
+ */
+#define   APP_BUFF_SIZE 1024

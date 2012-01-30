@@ -92,11 +92,11 @@
   RESULT[i++] ^= *Pt2;
   RESULT[i++] ^= *Pt3;
 
-  inter = (*Pt0 >> (1)) ^ (*Pt0 << (31)) ^ havege_hardtick;
-  *Pt0  = (*Pt1 >> (2)) ^ (*Pt1 << (30)) ^ havege_hardtick;
+  inter = ROR32(*Pt0,1) ^ havege_hardtick;
+  *Pt0  = ROR32(*Pt1,2) ^ havege_hardtick;
   *Pt1  = inter;
-  *Pt2  = (*Pt2 >> (3)) ^ (*Pt2 << (29)) ^ havege_hardtick;
-  *Pt3  = (*Pt3 >> (4)) ^ (*Pt3 << (28)) ^ havege_hardtick;
+  *Pt2  = ROR32(*Pt2, 3) ^ havege_hardtick;
+  *Pt3  = ROR32(*Pt3, 4) ^ havege_hardtick;
 
   Pt0 = &havege_pwalk[PT  ^ 2];
   Pt1 = &havege_pwalk[PT2 ^ 2];
@@ -109,21 +109,21 @@
   RESULT[i++] ^= *Pt3;
 
   if (PTtest & 1) {
-    volatile int *Ptinter;
+    volatile unsigned int *Ptinter;
     Ptinter = Pt0;
     Pt2 = Pt0;
     Pt0 = Ptinter;
   }
 
   PTtest = (PT2 >> 18);
-  inter  = (*Pt0 >> (5)) ^ (*Pt0 << (27)) ^ havege_hardtick;
-  *Pt0   = (*Pt1 >> (6)) ^ (*Pt1 << (26)) ^ havege_hardtick;
+  inter  = ROR32(*Pt0, 5) ^ havege_hardtick;
+  *Pt0   = ROR32(*Pt1, 6) ^ havege_hardtick;
   *Pt1   = inter;
 
   HARDCLOCK(havege_hardtick);
 
-  *Pt2 = (*Pt2 >> (7)) ^ (*Pt2 << (25)) ^ havege_hardtick;
-  *Pt3 = (*Pt3 >> (8)) ^ (*Pt3 << (24)) ^ havege_hardtick;
+  *Pt2 = ROR32(*Pt2, 7) ^ havege_hardtick;
+  *Pt3 = ROR32(*Pt3, 8) ^ havege_hardtick;
 
   Pt0 = &havege_pwalk[PT  ^ 4];
   Pt1 = &havege_pwalk[PT2 ^ 1];
@@ -173,11 +173,11 @@
   RESULT[i++] ^= *Pt2;
   RESULT[i++] ^= *Pt3;
 
-  inter = (*Pt0 >> (9))  ^ (*Pt0 << (23)) ^ havege_hardtick;
-  *Pt0  = (*Pt1 >> (10)) ^ (*Pt1 << (22)) ^ havege_hardtick;
+  inter = ROR32(*Pt0 , 9) ^ havege_hardtick;
+  *Pt0  = ROR32(*Pt1 , 10) ^ havege_hardtick;
   *Pt1  = inter;
-  *Pt2  = (*Pt2 >> (11)) ^ (*Pt2 << (21)) ^ havege_hardtick;
-  *Pt3  = (*Pt3 >> (12)) ^ (*Pt3 << (20)) ^ havege_hardtick;
+  *Pt2  = ROR32(*Pt2, 11) ^ havege_hardtick;
+  *Pt3  = ROR32(*Pt3, 12) ^ havege_hardtick;
 
   Pt0 = &havege_pwalk[PT  ^ 6];
   Pt1 = &havege_pwalk[PT2 ^ 3];
@@ -189,11 +189,11 @@
   RESULT[i++] ^= *Pt2;
   RESULT[i++] ^= *Pt3;
 
-  inter = (*Pt0 >> (13)) ^ (*Pt0 << (19)) ^ havege_hardtick;
-  *Pt0  = (*Pt1 >> (14)) ^ (*Pt1 << (18)) ^ havege_hardtick;
+  inter = ROR32(*Pt0, 13) ^ havege_hardtick;
+  *Pt0  = ROR32(*Pt1, 14) ^ havege_hardtick;
   *Pt1  = inter;
-  *Pt2  = (*Pt2 >> (15)) ^ (*Pt2 << (17)) ^ havege_hardtick;
-  *Pt3  = (*Pt3 >> (16)) ^ (*Pt3 << (16)) ^ havege_hardtick;
+  *Pt2  = ROR32(*Pt2, 15) ^ havege_hardtick;
+  *Pt3  = ROR32(*Pt3, 16) ^ havege_hardtick;
 
   /* avoid PT and PT2 to point on the same cache block */
   PT = (((RESULT[(i - 8) ^ pt] ^ havege_pwalk[PT ^ pt ^ 7])) &

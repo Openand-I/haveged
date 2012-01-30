@@ -19,6 +19,10 @@
 #ifndef HAVEGE_H
 #define HAVEGE_H
 /**
+ * For a bit of portability
+ */
+typedef unsigned int U_INT;
+/**
  * Configuration information
  */
 #define GENERIC_DCACHE 16
@@ -54,16 +58,16 @@ struct hinfo {
    int   havege_fills;           // number of times buffer has been filled
    int   havege_ndpt;            // get pointer
    int   havege_opts;            // option flags
-   int   *havege_buf;            // the collection buffer
+   U_INT *havege_buf;            // the collection buffer
 };
 typedef struct hinfo *H_PTR;
 typedef const struct hinfo *H_RDR;
 /**
  * Public prototypes
  */
-void           havege_debug(H_PTR hptr, char ** cpts, int * pts);
+void           havege_debug(H_PTR hptr, char ** cpts, unsigned int * pts);
 int            havege_init(int icache, int dcache, int flags);
 H_RDR          havege_state(void);
 void           havege_status(char *buf);
-int            ndrand();
+U_INT          ndrand();
 #endif

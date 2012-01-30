@@ -1,3 +1,11 @@
+v1.3 (Oct 23, 2011)
+ * Intergrate contributions by Jirka Hladky to fine tune collection implementation.
+   Add non-daemon interface with option to send continuous stream of output to stdout.
+
+v1.2 (June 26, 2011))
+ * Address compiler issues by using compiler intrinsics.
+ * Fix cpuid pic issues once again.
+
 v1.01 (Jan 04,2011)
  * Add detached option for those who use a supervising daemon
  * Build cleanup for non-cpuid environments
