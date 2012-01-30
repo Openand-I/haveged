@@ -17,10 +17,10 @@ Closes: #576375
  3 files changed, 32 insertions(+), 2 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index 0390263..ad5652b 100644
+index 6ab2671..d233058 100755
 --- a/configure.ac
 +++ b/configure.ac
-@@ -46,8 +46,8 @@ case "$host" in
+@@ -94,8 +94,8 @@ case "$host" in
   ;;
  
   *)
@@ -32,11 +32,11 @@ index 0390263..ad5652b 100644
  
  esac
 diff --git a/src/havegecollect.c b/src/havegecollect.c
-index 8c6f6ca..07f28be 100644
+index 572cf70..00f4204 100755
 --- a/src/havegecollect.c
 +++ b/src/havegecollect.c
-@@ -245,3 +245,26 @@ static volatile int *havege_tune(H_PTR hptr)
-    offs = (int)((((long)&p[4096])&0xfff)/sizeof(int));
+@@ -256,3 +256,26 @@ static volatile U_INT *havege_tune(H_PTR hptr)
+    offs = (U_INT)((((unsigned long)&p[4096])&0xfff)/sizeof(int));
     return &p[4096-offs];
  }
 +
@@ -63,10 +63,10 @@ index 8c6f6ca..07f28be 100644
 +}
 +#endif
 diff --git a/src/havegecollect.h b/src/havegecollect.h
-index 46e636d..489f1fa 100644
+index 440646f..15f19eb 100755
 --- a/src/havegecollect.h
 +++ b/src/havegecollect.h
-@@ -90,6 +90,13 @@
+@@ -130,7 +130,14 @@ unsigned int havege_collect(volatile H_PTR hptr) __attribute__((optimize(1)));
  #define HARDCLOCK(x) ASM("mov %0=ar.itc" : "=r"(x))
  #define HASCPUID(x) x=1
  #endif
@@ -76,8 +76,9 @@ index 46e636d..489f1fa 100644
 +#define HARDCLOCK(x) (x = hardclock_generic())
 +static unsigned long hardclock_generic(void);
 +#endif
+ #endif
 +
  /**
-  *  Use gcc's "&&" extension to calculate the LOOP_PT
+  *  Use the "&&" extension to calculate the LOOP_PT
   */
 -- 

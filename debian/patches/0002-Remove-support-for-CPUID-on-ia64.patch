@@ -13,10 +13,10 @@ cache values on ia64.
  1 files changed, 0 insertions(+), 4 deletions(-)
 
 diff --git a/src/havegecollect.h b/src/havegecollect.h
-index 489f1fa..20014e3 100644
+index 15f19eb..15cf466 100755
 --- a/src/havegecollect.h
 +++ b/src/havegecollect.h
-@@ -84,11 +84,7 @@
+@@ -124,11 +124,7 @@ unsigned int havege_collect(volatile H_PTR hptr) __attribute__((optimize(1)));
  
  #ifdef HAVE_ISA_IA64
  #define ARCH "ia64"
