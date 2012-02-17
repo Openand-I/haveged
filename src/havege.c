@@ -1,7 +1,8 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2011 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2012 Gary Wuertz gary@issiweb.com
+ ** Copyright 2011-2012 BenEleventh Consulting manolson@beneleventh.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -16,322 +17,291 @@
  ** You should have received a copy of the GNU General Public License
  ** along with this program.  If not, see <http://www.gnu.org/licenses/>.
  **
- ** This source is an adaptation of work released as
- **
- ** Copyright (C) 2006 - André Seznec - Olivier Rochecouste
- **
- ** under version 2.1 of the GNU Lesser General Public License
  */
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <ctype.h>
 #include <string.h>
 #include "havege.h"
 #include "havegecollect.h"
 
+#if  NUMBER_CORES>1
+#include <sys/mman.h>
+#include <sys/wait.h>
+#include <semaphore.h>
+#include <sched.h>
+#include <signal.h>
+/**
+ * Collection thread directory
+ */
+typedef struct {
+   U_INT    count;      /* associated count        */
+   U_INT    last;       /* last output             */
+   U_INT    *out;       /* buffer pointer          */
+   U_INT    fatal;      /* fatal error in last     */
+   sem_t    flags[1];   /* thread signals          */
+} H_THREAD;
+/**
+ * Cleanup hooks
+ */
+static H_THREAD *exit_hook = NULL;
+static U_INT    exit_ct    = 0;
+/**
+ * Local prototypes
+ */
+static void havege_ipc(H_PTR h_ptr, U_INT n, U_INT sz);
+static int  havege_rngChild(H_PTR h_ptr, U_INT cNumber);
+static void havege_signal(int signum);
+#endif
+
 /**
  * State
  */
-static struct  hinfo info;                               // configuration
-MSC_DATA;
+static struct     hinfo info;
 
 /**
- ** local prototypes
+ * Initialize the entropy collector.
  */
-static int  cache_configure(void);
-#ifdef CPUID
-static int           configure_amd(void);
-static int           configure_intel(unsigned int lsfn);
-static void          cpuid(int fn, unsigned int *p, char * tag);
-#endif
-#ifdef CPUID
-/**
- * Configure the collector for x86 architectures. If a cpuid instruction is present
- * use it to determine the sizes of the data and instruction caches. If these cannot
- * be used supply "generic" defaults.
- */
-static int cache_configure(void)
+int havege_create(         /* RETURN: NZ on failure   */
+  H_PTR h)                 /* IN-OUT: app anchor      */
 {
-   unsigned char regs[4*sizeof(int)];
-   unsigned int *p = (unsigned int *)regs;
-   
-   if (info.i_cache>0 && info.d_cache>0)
-      return 1;
-   if (HASCPUID(p)) {
-     cpuid(0,p,"max info type");
-     switch(p[1]) {
-        case 0x68747541:  info.vendor = "amd";       break;
-        case 0x69727943:  info.vendor = "cyrix";     break;
-        case 0x746e6543:  info.vendor = "centaur";   break;   // aka via
-        case 0x756e6547:  info.vendor = "intel";     break;
-        case 0x646f6547:  info.vendor = "natsemi";   break;
-        case 0x52697365:
-        case 0x65736952:  info.vendor = "rise";      break;   // now owned by sis
-        case 0x20536953:  info.vendor = "sis";       break;
-        default:          info.vendor = "other";     break;
-        }
-      }
-   else p[0]  = 0;
-   if (!strcmp(info.vendor,"amd") && configure_amd())
-      ;
-   else if (configure_intel(p[0]))
-      ;
-   else {
-      info.generic = 1;
-      if (info.d_cache<1)  info.d_cache = GENERIC_DCACHE;
-      if (info.i_cache<1)  info.i_cache = GENERIC_ICACHE;
-      }
-   return 1;
-}
-/**
- * Automatic configuration for amd
- *
- * As per AMD document 2541, April 2008
- */
-static int configure_amd(void)
-{
-   unsigned char regs[4*sizeof(int)];
-   unsigned int *p = (unsigned int *)regs;
+   int        i = 0;
 
-   cpuid(0x80000000,p,"configure_amd");
-   if ((p[0]&15)>=5) {                       // We want the L1 info
-      cpuid(0x80000005,p,"configure_amd");
-      info.d_cache   =  (p[2]>>24) & 0xff;   // l1 data cache
-      info.i_cache   =  (p[3]>>24) & 0xff;   // l1 instruction cache
-      return 1;
-      }
-   return 0;
-}
-/**
- * Automatic configuration for Intel x86 chips
- *
- * Notes: The "pentium hack" is to use the trace cache size for the instruction cache
- *        if no instruction cache value is found.
- *
- *        Recent Intel processor handbooks, hint that a processor may return a
- *        cache descriptor of 0xff to say in effect "buzz-off use leaf 4". My
- *        limited testing with leaf 4 indicates that it does not return the
- *        same information as leaf 2 - so in this code leaf 4 is only used as
- *        a fallback....
- */
-static int configure_intel(unsigned int lsfn)
-{
-   unsigned char regs[4*sizeof(int)];
-   unsigned int *p = (unsigned int *)regs;
-  /**
-   * As per Intel application note 485, August 2009 the following table contains
-   * triples descriptor#, type (0=instruction,1=data), size (kb)
-   * This table contains only L1 instruction(0), data(1), and trace(2) items.
-   */
-   static const int desc[] = {
-      0x06, 0,  8 , // 4-way set assoc, 32 byte line size
-      0x08, 0, 16 , // 4-way set assoc, 32 byte line size
-      0x09, 0, 32 , // 4-way set assoc, 64 byte line size +
-      0x0a, 1,  8 , // 2 way set assoc, 32 byte line size
-      0x0c, 1, 16 , // 4-way set assoc, 32 byte line size
-      0x0d, 1, 16 , // 4-way set assoc, 64 byte line size +
-      0x10, 1, 16 , // 4-way set assoc, 64 byte line size
-      0x15, 0, 16 , // 4-way set assoc, 64 byte line size
-      0x2c, 1, 32 , // 8-way set assoc, 64 byte line size
-      0x30, 0, 32 , // 8-way set assoc, 64 byte line size
-      0x60, 1, 16 , // 8-way set assoc, sectored cache, 64 byte line size
-      0x66, 1,  8 , // 4-way set assoc, sectored cache, 64 byte line size
-      0x67, 1, 16 , // 4-way set assoc, sectored cache, 64 byte line size
-      0x68, 1, 32 , // 4-way set assoc, sectored cache, 64 byte line size
-      0x70, 2, 12 , // 8-way set assoc
-      0x71, 2, 16 , // 8-way set assoc
-      0x72, 2, 32 , // 8-way set assoc
-      0x73, 2, 64 , // 8-way set assoc
-      0x77, 0, 16 , // 4-way set assoc, sectored cache, 64 byte line size
-      0x00, 0,  0   // sentinel
-      };
-   int i,j,k,n,sizes[] = {0,0,0};
-
-   cpuid(2,p,"configure_intel");
-   n = p[0]&0xff;
-   for(i=0;i<n;i++) {
-      for(j=0;j<4;j++)
-         if (p[j] & 0x80000000) p[j] = 0;
-      for(j=0;j<sizeof(regs);j++) {
-         if (!regs[j]) continue;
-         for(k=0;desc[k]!=0;k+=3)
-            if (desc[k]==regs[j]) {
-               sizes[desc[k+1]] += desc[k+2];
-               break;
-               }
-         if (DEBUG_ENABLED(DEBUG_CPUID))
-            DEBUG_OUT("lookup %x %d %d\n", regs[j], desc[k+1], desc[k+2]);
-         }
-      if ((i+1)!=n)
-         cpuid(2,p,"configure_intel(2)");
-      }
-   if (sizes[0]<sizes[2])	                  // pentium4 hack
-      sizes[0] = sizes[2];
-   if ((sizes[0]==0||sizes[1]==0) && lsfn>3) {
-      int level, type, ways, parts, lines;
-      for(i=0;i<15;i++) {
-         p[3] = i;
-         cpuid(4,p,"configure_intel(3)");
-         if ((type=p[0]&0x1f)==0) break;     // No more info
-         level = (p[0]>>5)&7;
-         lines = p[1] & 0xfff;
-         parts = (p[1]>>12) & 0x3ff;
-         ways  = (p[1]>>22) & 0x3ff;
-         n     = ((ways+1)*(parts+1)*(lines+1)*(p[2]+1))/1024;
-         if (DEBUG_ENABLED(DEBUG_CPUID))
-            DEBUG_OUT("type=%d,level=%d,ways=%d,parts=%d,lines=%d,sets=%d: %d\n",
-               type,level,ways+1,parts+1,lines+1,p[3]+1,n);
-         if (level==1)
-            switch(type) {
-               case 1:  sizes[1] = n;  break;      // data
-               case 2:  sizes[0] = n;  break;      // instruction
-               case 3:  sizes[2] = n;  break;      // unified
-               }
-         }
-      }
-   if (info.i_cache<1)
-      info.i_cache   = sizes[0];
-   if (info.d_cache<1)
-      info.d_cache   = sizes[1];
-   if (info.i_cache>0 && info.d_cache>0)
-      return 1;
-   return 0;
-}
-/**
- * Wrapper around the cpuid macro to assist in debugging
- */
-static void cpuid(int fn, unsigned int *p, char * tag)
-{
-   CPUID(fn,p);
-   if (DEBUG_ENABLED(DEBUG_CPUID)) {
-      char *rn = "ABDC";
-      char d[sizeof(int)+1];int i,j;
-
-      DEBUG_OUT("%s:%d\n",tag,fn);
-      for (i=0;i<4;i++) {
-         int t = p[i];
-         int c = 0;
-         for (j=sizeof(unsigned int);j>=0;j--) {
-            d[j] = (char)c;
-            c = t&0xff;
-            if (!isprint(c)) c = '.';
-            t >>= 8;
-            }
-         DEBUG_OUT("E%cX %10x %s\n", rn[i], p[i], d);
-         }
-      }
-}
+#if NUMBER_CORES>1
+   for(i = 0; i < info.n_cores;i++)
+      if (havege_rngChild(h, i)<0)
+         return 1;
 #else
- /*
- * Configure the collector for other architectures. If command line defaults are not
- * supplied provide "generic" defaults.
- */
-static int cache_configure(void)
-{
-   if (info.i_cache>0 && info.d_cache>0)
-      ;
-   else {
-      info.generic = 1;
-      if (info.d_cache<1)  info.d_cache = GENERIC_DCACHE;
-      if (info.i_cache<1)  info.i_cache = GENERIC_ICACHE;
-      }
-   return 1;
-}
-#endif
-/**
- * Debug setup code
- */
-void  havege_debug(H_PTR hptr, char **havege_pts, unsigned int *pts)
-{
-   int i;
-
-   if (DEBUG_ENABLED(DEBUG_COMPILE))
-      for (i=0;i<=(LOOP_CT+1);i++)
-         printf("Address %d=%p\n", i, havege_pts[i]);
-   if (DEBUG_ENABLED(DEBUG_LOOP))
-      for(i=1;i<(LOOP_CT+1);i++)
-         DEBUG_OUT("Loop %d: offset=%d, delta=%d\n", i,pts[i],pts[i]-pts[i-1]);
-}
-/**
- * Configure the collector
- *
- * Initialize the entropy collector. An intermediate walk table twice the size
- * of the L1 data cache is allocated to be used in permutting processor time
- * stamp readings. This is meant to exercies processort TLBs.
- */
-int havege_init(int icache, int dcache, int flags)
-{
-   info.arch    = ARCH;
-   info.vendor  = "";
-   info.generic = 0;
-   info.i_cache = icache;
-   info.d_cache = dcache;
-
-   info.havege_opts = flags;
-   if (cache_configure() && havege_collect(&info)!= 0) {
-      const int max = MININITRAND*CRYPTOSIZECOLLECT/NDSIZECOLLECT;
-      int i;
-
-      for (i = 0; i < max; i++) {
-         MSC_START();
-         havege_collect(&info);
-         MSC_STOP();
-         info.etime = MSC_ELAPSED();
-         }
-      info.havege_ndpt = 0;
+   if (NULL==(h->collector = havege_ndcreate(h, i)))
       return 1;
-      }
+#endif
    return 0;
 }
 /**
- * Limit access to our state variable to those who explicity ask
+ * Cleanup collector(s). In a multi-thread environment, need to kill
+ * children to avoid zombies.
  */
-H_RDR havege_state(void)
+void havege_exit(          /* RETURN: None         */
+  int level)               /* IN: NZ if thread     */
 {
+#if NUMBER_CORES>1
+   H_THREAD *t = exit_hook;
+   U_INT i;
+   
+   if (NULL != t) {
+      t->fatal = H_EXIT;
+      for(i=0;i<exit_ct;i++)
+         (void)sem_post(&t->flags[i]);
+      }
+   if (level==0)
+      wait((int *)&i);
+#endif
+}
+/**
+ * Initialize the environment based upon the tuning survey. This includes,
+ * allocation the output buffer (in shared memory if mult-threaded) and
+ * fitting the collection code to the tuning inputs.
+ */
+H_PTR havege_init(         /* RETURN: app state    */
+  CMD_PARAMS *params)      /* IN: input params     */
+{
+   HOST_CFG   *env  = havege_tune(params);
+   U_INT      n = params->nCores;
+
+   if (0 == n)
+      n = 1;
+   info.error = H_NOBUF;
+#if NUMBER_CORES>1
+   havege_ipc(&info, n, params->ioSz);
+#else
+   info.io_buf  = malloc(params->ioSz);
+   info.threads = NULL;
+#endif
+   if (NULL==info.io_buf)
+      return &info;
+   info.error           = H_NOERR;
+   info.arch            = ARCH;
+   info.params          = params;
+   info.n_cores         = n;
+   info.havege_opts     = params->options;
+   info.i_collectSz     = params->collectSize;
+   info.cpu             = &env->cpus[env->a_cpu];
+   info.instCache       = &env->caches[env->i_tune];
+   info.dataCache       = &env->caches[env->d_tune];
+   havege_ndsetup(&info);
    return &info;
 }
 /**
- * Debug dump
+ * Read random words. In the single-thread case, input is read by the calling the
+ * collection method directly. In the multi-thread case, the request info is
+ * signalled to the thread last read and this thread waits for a completion signal.
  */
-void havege_status(char *buf)
+int havege_rng(            /* RETURN: number words read     */
+  H_PTR h,                 /* IN-OUT: app state             */
+  U_INT *buffer,           /* OUT: read buffer              */
+  U_INT sz)                /* IN: number words to read      */
 {
-   const char *fmt =
-      "arch:        %s\n"
-      "vendor:      %s\n"
-      "generic:     %d\n"
-      "i_cache:     %d\n"
-      "d_cache:     %d\n"
-      "loop_idx:    %d\n"
-      "loop_idxmax: %d\n"
-      "loop_sz:     %d\n"
-      "loop_szmax:  %d\n"
-      "etime:       %d\n"
-      "havege_ndpt  %d\n";
-   sprintf(buf,fmt,
-      info.arch,
-      info.vendor,
-      info.generic,
-      info.i_cache,
-      info.d_cache,
-      info.loop_idx,
-      info.loop_idxmax,
-      info.loop_sz,
-      info.loop_szmax,
-      info.etime,
-      info.havege_ndpt
-      );
+#if NUMBER_CORES>1
+   H_THREAD    *t = (H_THREAD *) h->threads;
+   
+   t->count = sz;
+   t->out   = buffer;
+   if (0!=sem_post(&t->flags[t->last]))
+      h->error = H_NORQST;
+   else if (0!=sem_wait(&t->flags[h->n_cores]))
+      h->error = H_NOCOMP;
+   else if (H_NOERR != t->fatal)
+      h->error = t->fatal;
+   else return sz;
+   return -1;
+#else
+   U_INT i;
+
+   for(i=0;i<sz;i++)
+      buffer[i] = havege_ndread(h->collector);
+   return i;
+#endif
 }
 /**
- * Main access point
+ * Report setup
  */
-U_INT ndrand()
+void havege_status(
+  H_PTR h_ptr,             /* IN-OUT: app state    */
+  char *buf,               /* OUT: text buffer     */
+  int sz)                  /* IN: buffer size      */
 {
-   if (info.havege_ndpt >= NDSIZECOLLECT) {
-      MSC_START();
-      havege_collect(&info);
-      info.havege_ndpt = 0;
-      MSC_STOP();
-      info.etime = MSC_ELAPSED();
-      }
-   return info.havege_buf[info.havege_ndpt++];
+   const char *fmt =
+      "version:     %s\n"
+      "arch:        %s\n"
+      "vendor:      %s\n"
+      "cores:       %d/%d\n"
+      "buffer:      %dK\n"
+      "i_cache:     %dK (%06x)\n"
+      "i_index:     %d/%d\n"
+      "i_size:      %d/%d\n"
+      "d_cache:     %dK (%06x)\n";
+   (void) snprintf(buf, sz, fmt,
+      h_ptr->params->version,
+      h_ptr->arch,
+      h_ptr->cpu->vendor,
+      h_ptr->n_cores,
+      NUMBER_CORES,
+      h_ptr->i_collectSz/1024,
+      h_ptr->instCache->size,
+      h_ptr->instCache->cpuMap.source,
+      h_ptr->i_idx, h_ptr->i_maxidx,
+      h_ptr->i_sz,  h_ptr->i_maxsz,
+      h_ptr->dataCache->size,
+      h_ptr->dataCache->cpuMap.source
+      );
 }
+#if NUMBER_CORES > 1
+/**
+ * Initialize IPC mechanism. This consists of setting up a shared memory area
+ * containing the output buffer and the collection thread directory.
+ */
+static void havege_ipc(H_PTR h, U_INT n, U_INT sz)
+{
+   void     *m;
+   H_THREAD *t;
+   int      i;
+
+   h->io_buf = h->threads = NULL;
+   m = mmap(NULL,
+            sz + sizeof(H_THREAD) + n * sizeof(sem_t),
+            PROT_READ | PROT_WRITE,
+            MAP_SHARED | MAP_ANONYMOUS,
+            0,
+            0);
+   if (m != MAP_FAILED) {
+      t = (H_THREAD *)((char *) m + sz);
+      memset(t, 0, sizeof(H_THREAD));
+      for(i=0;i<=n;i++)
+         if(sem_init(&t->flags[i],1,0) < 0) {
+            h->error = H_NOINIT;
+            return;
+            }
+      h->io_buf  = m;
+      h->threads = exit_hook = t;
+      exit_ct = n;
+      }
+}
+/**
+ * Child harvester task. If task fails to start H_PTR::error will be set to reason.
+ * If task fails after start, H_THREAD::fatal will be set to the reason and a completion
+ * will be posted to prevent the main thread from hanging waiting for a response.
+ */
+static int havege_rngChild(
+  H_PTR h_ptr,             /* IN: app state        */
+  U_INT cNumber)           /* IN: collector index  */
+{
+   H_COLLECT   *h_ctxt;
+   H_THREAD    *thds = (H_THREAD *) h_ptr->threads;
+   U_INT       cNext, i, r;
+   int         pid;
+
+   switch(pid=fork()) {
+      case 0:
+
+#ifdef SIGHUP
+         signal(SIGHUP, havege_signal);
+#endif
+         signal(SIGINT, havege_signal);
+         signal(SIGTERM, havege_signal);
+
+         h_ctxt = havege_ndcreate(h_ptr, cNumber);
+         if (NULL != h_ctxt) {
+            cNext = (cNumber + 1) % h_ptr->n_cores;
+            while(1) {
+               if (0!=sem_wait(&thds->flags[cNumber])) {
+                  thds->fatal = H_NOWAIT;
+                  break;
+                  }
+               if (H_NOERR != thds->fatal)
+                  exit(0);
+               thds->last = cNumber;
+               r = h_ctxt->havege_szFill - h_ctxt->havege_nptr;
+               if (thds->count < r)
+                  r = thds->count; 
+               for(i=0;i<r;i++)
+                  thds->out[i] = havege_ndread(h_ctxt);
+               if (0==(thds->count -= i)) {
+                  if (0!=sem_post(&thds->flags[h_ptr->n_cores])) {
+                     thds->fatal = H_NODONE;
+                     break;
+                     }
+                  continue;
+                  }
+               thds->out += i;
+               if (0!=sem_post(&thds->flags[cNext])) {
+                  thds->fatal = H_NOPOST;
+                  break;
+                  }
+#ifdef HAVE_SCHED_YIELD
+               (void)sched_yield();
+#endif
+               (void)havege_ndread(h_ctxt);
+               h_ctxt->havege_nptr = 0;
+               }
+            }
+         else thds->fatal = h_ptr->error;                /* h_ptr is a copy!!    */
+         (void)sem_post(&thds->flags[h_ptr->n_cores]);   /* announce death!      */
+         break;
+      case -1:
+         h_ptr->error = H_NOTASK;
+      }
+   return pid;
+}
+/**
+ * Local signal handling
+ */
+static void havege_signal(int signum)
+{
+   havege_exit(1);
+}
+
+#endif
+
+

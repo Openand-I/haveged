@@ -159,7 +159,6 @@ int main(int argc, char *argv[])
    int oc, opt;
    long ccount[256];       /* Bins to count occurrences of values */
    long totalc = 0;        /* Total character count */
-   char *samp;
    double montepi, chip,
           scc, ent, mean, chisq;
    FILE *fp = stdin;
@@ -218,8 +217,6 @@ int main(int argc, char *argv[])
            printf("Cannot open file %s\n", filename);
       return 2;
       }
-
-        samp = binary ? "bit" : "byte";
    memset(ccount, 0, sizeof ccount);
 
    /* Initialise for calculations */

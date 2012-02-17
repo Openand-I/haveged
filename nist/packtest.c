@@ -51,7 +51,6 @@
  * Modified Aug 2008 for clean compilation under gcc 4.4
  * --------------------------------------------------------------------------
  */
-
 #ifndef NOIO
 #define  IO
 #endif
@@ -678,11 +677,10 @@ int W_obs[MAXNUMOFTEMPLATES];
 int
 NonOverlappingTemplateMatchings (int m, int n, int *ARRAY)
 {
-
   FILE *fp;
   double sum, chi2, p_value, lambda;
   int i, j, k;
-  char directory[100];
+  char directory[FILENAME_MAX];
   int M, N, K = 5;
   int fail = 0;
   double pi[6], varWj;
@@ -693,7 +691,7 @@ NonOverlappingTemplateMatchings (int m, int n, int *ARRAY)
 
   lambda = (M - m + 1) / pow (2, m);
   varWj = M * (1. / pow (2., m) - (2. * m - 1.) / pow (2., 2. * m));
-  sprintf (directory, "template%d", m);
+  sprintf (directory, "%stemplate%d", GetBaseDir(), m);
   if ((fp = fopen (directory, "r")) == NULL)
     {
 #ifdef IO
@@ -820,9 +818,9 @@ I do not have the values for m=10.
 */
 
   int i;
-  double eta, sum, chi2;
+  double sum, chi2;
   int W_obs;
-  double p_value, lambda;
+  double p_value;
   int DATA;
   int M, N, j, K = 5;
   unsigned int nu[6] = { 0, 0, 0, 0, 0, 0 };
@@ -843,10 +841,11 @@ I do not have the values for m=10.
   N = 968;
 
 
+/*
   lambda = (double) (M - m + 1) / pow (2, m);
-  eta = lambda / 2.0;
-  sum = 0.0;
-/*  for (i = 0; i < K; i++)
+   eta = lambda / 2.0;
+   sum = 0.0;
+   for (i = 0; i < K; i++)
     {
 
       pi[i] = Pr (i, eta);
@@ -1383,14 +1382,14 @@ Serial (int m, int n, int *ARRAY, int PT)
 double
 psi2 (int m, int n, int *ARRAY, int PT)
 {
-  int i, j, k, powLen;
+  int i, j, k;
   double sum, numOfBlocks;
   unsigned int *P;
 
   if ((m == 0) || (m == -1))
     return 0.0;
   numOfBlocks = n;
-  powLen = (int) pow (2, m + 1) - 1;
+
   P = (unsigned int*) MYCALLOC (65536, sizeof (unsigned int));
   for (i = 0; i < numOfBlocks; i++)
     {				/* COMPUTE FREQUENCY */
@@ -1539,13 +1538,12 @@ int
 LempelZivCompression (int n, int *ARRAY, int *DATA, int *pt, int *PT)
 {
   int W;			/* Number of words */
-  int i, j, k, prev_I, powLen, max_len, nOrig;
+  int i, j, k, prev_I, powLen, max_len;
   int done = 0;
   double p_value, mean=0.0, variance=0.0;
   BitField *P;
   int fail = 0;
   W = 0;
-  nOrig = n;
   k = (int) log (n) / log (2) + 6;
   powLen = pow (2, k);
 
@@ -1689,7 +1687,7 @@ LempelZivCompression (int n, int *ARRAY, int *DATA, int *pt, int *PT)
 int
 DiscreteFourierTransform (int N, int *ARRAY)
 {
-  double p_value, upperBound, percentile, *m, *X;
+  double p_value, upperBound, *m, *X;
   int i, count;
   double N_l, N_o, d;
   double *wsave;
@@ -1723,7 +1721,6 @@ DiscreteFourierTransform (int N, int *ARRAY)
     for (i = 0; i < n / 2; i++)
       if (m[i] < upperBound)
 	count++;
-    percentile = (double) count / (n / 2) * 100;
     N_l = (double) count;	/* number of peaks less than h = sqrt(3*n) */
     N_o = (double) 0.95 *n / 2.;
     d = (N_l - N_o) / sqrt (n / 2. * 0.95 * 0.05);

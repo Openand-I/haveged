@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2012 Gary Wuertz gary@issiweb.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -22,12 +22,13 @@
  **
  ** under version 2.1 of the GNU Lesser General Public License
  **
- ** Minor changes from HAVENGE original: Removed conditinal wrapper, change to
- ** autoincrement for RESULT updates.
+ ** The original form is retained with minor variable renames for
+ ** more consistent macro itilization. See havegecollect.c for
+ ** details.
  */
 
 /* ------------------------------------------------------------------------
- * On average, one iteration accesses two 8-word blocks in the havege_walk
+ * On average, one iteration accesses two 8-word blocks in the PWALK
  * table, and generates 16 words in the RESULT array.
  *
  * The data read in the Walk table are updated and permuted after each use.
@@ -42,28 +43,28 @@
  * ------------------------------------------------------------------------
  */
 
-  PTtest = PT >> 20;
+  PTTEST = PT >> 20;
 
-  if (PTtest & 1) {
-    PTtest ^= 3; PTtest = PTtest >> 1;
-    if (PTtest & 1) {
-      PTtest ^= 3; PTtest = PTtest >> 1;
-      if (PTtest & 1) {
-        PTtest ^= 3; PTtest = PTtest >> 1;
-        if (PTtest & 1) {
-          PTtest ^= 3; PTtest = PTtest >> 1;
-          if (PTtest & 1) {
-            PTtest ^= 3; PTtest = PTtest >> 1;
-            if (PTtest & 1) {
-              PTtest ^= 3; PTtest = PTtest >> 1;
-              if (PTtest & 1) {
-                PTtest ^= 3; PTtest = PTtest >> 1;
-                if (PTtest & 1) {
-                  PTtest ^= 3; PTtest = PTtest >> 1;
-                  if (PTtest & 1) {
-                    PTtest ^= 3; PTtest = PTtest >> 1;
-                    if (PTtest & 1) {
-                      PTtest ^= 3; PTtest = PTtest >> 1;
+  if (PTTEST & 1) {
+    PTTEST ^= 3; PTTEST = PTTEST >> 1;
+    if (PTTEST & 1) {
+      PTTEST ^= 3; PTTEST = PTTEST >> 1;
+      if (PTTEST & 1) {
+        PTTEST ^= 3; PTTEST = PTTEST >> 1;
+        if (PTTEST & 1) {
+          PTTEST ^= 3; PTTEST = PTTEST >> 1;
+          if (PTTEST & 1) {
+            PTTEST ^= 3; PTTEST = PTTEST >> 1;
+            if (PTTEST & 1) {
+              PTTEST ^= 3; PTTEST = PTTEST >> 1;
+              if (PTTEST & 1) {
+                PTTEST ^= 3; PTTEST = PTTEST >> 1;
+                if (PTTEST & 1) {
+                  PTTEST ^= 3; PTTEST = PTTEST >> 1;
+                  if (PTTEST & 1) {
+                    PTTEST ^= 3; PTTEST = PTTEST >> 1;
+                    if (PTTEST & 1) {
+                      PTTEST ^= 3; PTTEST = PTTEST >> 1;
                     }
                   }
                 }
@@ -75,85 +76,84 @@
     }
   };
 
-  PTtest = PTtest >> 1;
+  PTTEST = PTTEST >> 1;
   pt = (PT >> 18) & 7;
 
   PT = PT & ANDPT;
 
-  HARDCLOCK(havege_hardtick);
+  HARDCLOCKR(HTICK1);
 
-  Pt0 = &havege_pwalk[PT];
-  Pt1 = &havege_pwalk[PT2];
-  Pt2 = &havege_pwalk[PT  ^ 1];
-  Pt3 = &havege_pwalk[PT2 ^ 4];
+  Pt0 = &PWALK[PT];
+  Pt1 = &PWALK[PT2];
+  Pt2 = &PWALK[PT  ^ 1];
+  Pt3 = &PWALK[PT2 ^ 4];
 
   RESULT[i++] ^= *Pt0;
   RESULT[i++] ^= *Pt1;
   RESULT[i++] ^= *Pt2;
   RESULT[i++] ^= *Pt3;
 
-  inter = ROR32(*Pt0,1) ^ havege_hardtick;
-  *Pt0  = ROR32(*Pt1,2) ^ havege_hardtick;
+  inter = ROR32(*Pt0,1) ^ HTICK1;
+  *Pt0  = ROR32(*Pt1,2) ^ HTICK1;
   *Pt1  = inter;
-  *Pt2  = ROR32(*Pt2, 3) ^ havege_hardtick;
-  *Pt3  = ROR32(*Pt3, 4) ^ havege_hardtick;
+  *Pt2  = ROR32(*Pt2, 3) ^ HTICK1;
+  *Pt3  = ROR32(*Pt3, 4) ^ HTICK1;
 
-  Pt0 = &havege_pwalk[PT  ^ 2];
-  Pt1 = &havege_pwalk[PT2 ^ 2];
-  Pt2 = &havege_pwalk[PT  ^ 3];
-  Pt3 = &havege_pwalk[PT2 ^ 6];
+  Pt0 = &PWALK[PT  ^ 2];
+  Pt1 = &PWALK[PT2 ^ 2];
+  Pt2 = &PWALK[PT  ^ 3];
+  Pt3 = &PWALK[PT2 ^ 6];
 
   RESULT[i++] ^= *Pt0;
   RESULT[i++] ^= *Pt1;
   RESULT[i++] ^= *Pt2;
   RESULT[i++] ^= *Pt3;
 
-  if (PTtest & 1) {
-    volatile unsigned int *Ptinter;
+  if (PTTEST & 1) {
     Ptinter = Pt0;
     Pt2 = Pt0;
     Pt0 = Ptinter;
   }
 
-  PTtest = (PT2 >> 18);
-  inter  = ROR32(*Pt0, 5) ^ havege_hardtick;
-  *Pt0   = ROR32(*Pt1, 6) ^ havege_hardtick;
+  PTTEST = (PT2 >> 18);
+  inter  = ROR32(*Pt0, 5) ^ HTICK1;
+  *Pt0   = ROR32(*Pt1, 6) ^ HTICK1;
   *Pt1   = inter;
 
-  HARDCLOCK(havege_hardtick);
+  HARDCLOCKR(HTICK2);
 
-  *Pt2 = ROR32(*Pt2, 7) ^ havege_hardtick;
-  *Pt3 = ROR32(*Pt3, 8) ^ havege_hardtick;
+  *Pt2 = ROR32(*Pt2, 7) ^ HTICK2;
+  *Pt3 = ROR32(*Pt3, 8) ^ HTICK2;
 
-  Pt0 = &havege_pwalk[PT  ^ 4];
-  Pt1 = &havege_pwalk[PT2 ^ 1];
+  Pt0 = &PWALK[PT  ^ 4];
+  Pt1 = &PWALK[PT2 ^ 1];
 
-  PT2 = (RESULT[(i - 8) ^ pt2] ^ havege_pwalk[PT2 ^ pt2 ^ 7]);
+  PT2 = (RESULT[(i - 8) ^ PT1] ^ PWALK[PT2 ^ PT1 ^ 7]);
   PT2 = ((PT2 & ANDPT) & (0xfffffff7)) ^ ((PT ^ 8) & 0x8);
 
   /* avoid PT and PT2 to point on the same cache block */
-  pt2 = ((PT2 >> 28) & 7);
+  PT1 = ((PT2 >> 28) & 7);
 
-  if (PTtest & 1) {
-    PTtest ^= 3; PTtest = PTtest >> 1;
-    if (PTtest & 1) {
-      PTtest ^= 3; PTtest = PTtest >> 1;
-      if (PTtest & 1) {
-        PTtest ^= 3; PTtest = PTtest >> 1;
-        if (PTtest & 1) {
-          PTtest ^= 3; PTtest = PTtest >> 1;
-          if (PTtest & 1) {
-            PTtest ^= 3; PTtest = PTtest >> 1;
-            if (PTtest & 1) {
-              PTtest ^= 3; PTtest = PTtest >> 1;
-              if (PTtest & 1) {
-                PTtest ^= 3; PTtest = PTtest >> 1;
-                if (PTtest & 1) {
-                  PTtest ^= 3; PTtest = PTtest >> 1;
-                  if (PTtest & 1) {
-                    PTtest ^= 3; PTtest = PTtest >> 1;
-                    if (PTtest & 1) {
-                      PTtest ^= 3; PTtest = PTtest >> 1;
+  if (PTTEST & 1) {
+    PTTEST ^= 3; PTTEST = PTTEST >> 1;
+    if (PTTEST & 1) {
+      PTTEST ^= 3; PTTEST = PTTEST >> 1;
+      if (PTTEST & 1) {
+        PTTEST ^= 3; PTTEST = PTTEST >> 1;
+        if (PTTEST & 1) {
+          PTTEST ^= 3; PTTEST = PTTEST >> 1;
+          if (PTTEST & 1) {
+            PTTEST ^= 3; PTTEST = PTTEST >> 1;
+            if (PTTEST & 1) {
+              PTTEST ^= 3; PTTEST = PTTEST >> 1;
+              if (PTTEST & 1) {
+                PTTEST ^= 3; PTTEST = PTTEST >> 1;
+                if (PTTEST & 1) {
+                  PTTEST ^= 3; PTTEST = PTTEST >> 1;
+                  if (PTTEST & 1) {
+                    PTTEST ^= 3; PTTEST = PTTEST >> 1;
+                    if (PTTEST & 1) {
+                      PTTEST ^= 3; PTTEST = PTTEST >> 1;
                     }
                   }
                 }
@@ -165,36 +165,36 @@
     }
   };
 
-  Pt2 = &havege_pwalk[PT  ^ 5];
-  Pt3 = &havege_pwalk[PT2 ^ 5];
+  Pt2 = &PWALK[PT  ^ 5];
+  Pt3 = &PWALK[PT2 ^ 5];
 
   RESULT[i++] ^= *Pt0;
   RESULT[i++] ^= *Pt1;
   RESULT[i++] ^= *Pt2;
   RESULT[i++] ^= *Pt3;
 
-  inter = ROR32(*Pt0 , 9) ^ havege_hardtick;
-  *Pt0  = ROR32(*Pt1 , 10) ^ havege_hardtick;
+  inter = ROR32(*Pt0 , 9) ^ HTICK2;
+  *Pt0  = ROR32(*Pt1 , 10) ^ HTICK2;
   *Pt1  = inter;
-  *Pt2  = ROR32(*Pt2, 11) ^ havege_hardtick;
-  *Pt3  = ROR32(*Pt3, 12) ^ havege_hardtick;
+  *Pt2  = ROR32(*Pt2, 11) ^ HTICK2;
+  *Pt3  = ROR32(*Pt3, 12) ^ HTICK2;
 
-  Pt0 = &havege_pwalk[PT  ^ 6];
-  Pt1 = &havege_pwalk[PT2 ^ 3];
-  Pt2 = &havege_pwalk[PT  ^ 7];
-  Pt3 = &havege_pwalk[PT2 ^ 7];
+  Pt0 = &PWALK[PT  ^ 6];
+  Pt1 = &PWALK[PT2 ^ 3];
+  Pt2 = &PWALK[PT  ^ 7];
+  Pt3 = &PWALK[PT2 ^ 7];
 
   RESULT[i++] ^= *Pt0;
   RESULT[i++] ^= *Pt1;
   RESULT[i++] ^= *Pt2;
   RESULT[i++] ^= *Pt3;
 
-  inter = ROR32(*Pt0, 13) ^ havege_hardtick;
-  *Pt0  = ROR32(*Pt1, 14) ^ havege_hardtick;
+  inter = ROR32(*Pt0, 13) ^ HTICK2;
+  *Pt0  = ROR32(*Pt1, 14) ^ HTICK2;
   *Pt1  = inter;
-  *Pt2  = ROR32(*Pt2, 15) ^ havege_hardtick;
-  *Pt3  = ROR32(*Pt3, 16) ^ havege_hardtick;
+  *Pt2  = ROR32(*Pt2, 15) ^ HTICK2;
+  *Pt3  = ROR32(*Pt3, 16) ^ HTICK2;
 
   /* avoid PT and PT2 to point on the same cache block */
-  PT = (((RESULT[(i - 8) ^ pt] ^ havege_pwalk[PT ^ pt ^ 7])) &
+  PT = (((RESULT[(i - 8) ^ pt] ^ PWALK[PT ^ pt ^ 7])) &
         (0xffffffef)) ^ ((PT2 ^ 0x10) & 0x10);

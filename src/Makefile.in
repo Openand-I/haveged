@@ -48,9 +48,9 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(sbindir)"
 PROGRAMS = $(sbin_PROGRAMS)
 am_haveged_OBJECTS = haveged.$(OBJEXT) havege.$(OBJEXT) \
-	havegecollect.$(OBJEXT)
+	havegetune.$(OBJEXT) havegecollect.$(OBJEXT)
 haveged_OBJECTS = $(am_haveged_OBJECTS)
-haveged_LDADD = $(LDADD)
+haveged_DEPENDENCIES =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/config/depcomp
 am__depfiles_maybe = depfiles
@@ -85,7 +85,8 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 GREP = @GREP@
 HA_CHECK = @HA_CHECK@
-HA_CPPFLAGS = @HA_CPPFLAGS@
+HA_DISTRO = @HA_DISTRO@
+HA_LDFLAGS = @HA_LDFLAGS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -160,9 +161,11 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-AM_CFLAGS = -Wall
-AM_CPPFLAGS = @HA_CPPFLAGS@
-haveged_SOURCES = haveged.c havege.c havegecollect.c cpuid-43.h haveged.h havege.h havegecollect.h oneiteration.h
+AM_CFLAGS = -Wall -I..
+haveged_SOURCES = haveged.c havege.c havegetune.c havegecollect.c \
+                  cpuid-43.h haveged.h havege.h havegecollect.h oneiteration.h
+
+haveged_LDADD = @HA_LDFLAGS@
 MAINTAINERCLEANFILES = Makefile.in
 all: all-am
 
@@ -248,6 +251,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/havege.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/havegecollect.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/haveged.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/havegetune.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
