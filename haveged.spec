@@ -1,5 +1,5 @@
 Name:           haveged
-Version:        1.3
+Version:        1.4
 Release:        1
 License:        GPLv3
 Group:          System Environment/Daemons

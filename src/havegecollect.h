@@ -1,7 +1,8 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2011 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2012 Gary Wuertz gary@issiweb.com
+ ** Copyright 2011-2012 BenEleventh Consulting manolson@beneleventh.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -19,28 +20,12 @@
 #ifndef HAVEGECOLLECT_H
 #define HAVEGECOLLECT_H
 /**
- ** These definitions define the environment needed to build havege
- ** using the gcc compiler.
+ ** Definitions needed to build haveged
  */
 #include "havege.h"
-#include <sys/time.h>
-/**
- ** Hardware constraints
- */
-#define CRYPTOSIZECOLLECT 0x040000 /* 256k (1MB int)   */
-#define NDSIZECOLLECT     0x100000 /* 1M   (4MB int)   */
-#define NDSIZECOLLECTx2   0x200000 /* 2x NDSIZECOLLECT */
-#define MININITRAND       32
-/**
- ** Microsecond resolution times use gettimeofday
- */
-#define MSC_DATA          static struct timeval et0,et1;
-#define MSC_ELAPSED()     (et1.tv_sec - et0.tv_sec)*1000000 + et1.tv_usec - et0.tv_usec
-#define MSC_START()       gettimeofday(&et0,NULL)
-#define MSC_STOP()        gettimeofday(&et1,NULL)
 /**
  ** Compiler intrinsics are used to make the build more portable and stable
- ** with fallbacks provided where the intrisics cannot be used. 
+ ** with fall-backs provided where the intrisics cannot be used. 
  */
 #ifdef __GNUC__
 /* ################################################################################# */
@@ -49,7 +34,7 @@
  ** For the GNU compiler, the use of a cpuid intrinsic is somewhat garbled by the
  ** fact that some distributions (Centos 5.x) carry an empty cpuid.h (in order
  ** to back patch glicb?). AFAIK cpuid did not appear in gcc until version 4.3
- ** although it was in existance before. If we do not have a valid cpuid.h,
+ ** although it was in existence before. If we do not have a valid cpuid.h,
  ** we provide our own copy of the file (from gcc 4.3)
  **
  ** Also, gcc 4.4 and later provide an optimize attribute which remedies the
@@ -58,14 +43,6 @@
 #define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100  +  __GNUC_PATCHLEVEL__)
 
 #define ASM __asm__ volatile
-/**
- ** The collection mechanism cannot withstand agressive optimization
- */
-#if GCC_VERSION<40400
-unsigned int havege_collect(volatile H_PTR hptr);
-#else
-unsigned int havege_collect(volatile H_PTR hptr) __attribute__((optimize(1)));
-#endif
 /**
  ** For the intel world...
  */
@@ -81,11 +58,13 @@ unsigned int havege_collect(volatile H_PTR hptr) __attribute__((optimize(1)));
 #include "cpuid-43.h"
 #endif
 /**
- ** Compatability wrappers
+ ** Compatibility wrappers
  */
 #define CPUID(level,p)\
   {\
-  __cpuid_count (level,p[3],p[0],p[1],p[2],p[3]);\
+  register int ecx asm ("ecx") = p[2];\
+  __cpuid(level,p[0],p[1],p[2],p[3]);\
+  (void) ecx;\
   }
 #define HASCPUID(p) __get_cpuid_max(0, p)
 /**
@@ -95,16 +74,29 @@ unsigned int havege_collect(volatile H_PTR hptr) __attribute__((optimize(1)));
  */
 #ifdef HAVE_X86INTRIN_H
 #include <x86intrin.h>
+#endif
+#ifdef HAVE___RDTSC
 #define HARDCLOCK(x) x=__rdtsc()
 #else
 #define HARDCLOCK(x) ASM("rdtsc;movl %%eax,%0":"=m"(x)::"ax","dx")
 #endif
 #else
 /**
- * No cpuid support outside of the x86 family
+ * Outside the x86 family
  */
-#define CPUID(level,p) 0
-#define HASCPUID(p)    0
+#ifdef HAVE_ISA_GENERIC
+#define ARCH "generic"
+#define HARDCLOCK(x) x = havege_clock()
+#endif
+
+#ifdef HAVE_ISA_IA64
+#define ARCH "ia64"
+#define CPUID(op,reg) ASM("mov %0=cpuid[%1]"\
+   : "=r" (value)\
+   : "r" (reg))
+#define HARDCLOCK(x) ASM("mov %0=ar.itc" : "=r"(x))
+#define HASCPUID(x) x=1
+#endif
 
 #ifdef HAVE_ISA_SPARC
 #define ARCH "sparc"
@@ -122,20 +114,20 @@ unsigned int havege_collect(volatile H_PTR hptr) __attribute__((optimize(1)));
 #define HARDCLOCK(x) ASM("mftb %0":"=r"(x)) /* eq. to mftb %0, 268 */
 #endif
 
-#ifdef HAVE_ISA_IA64
-#define ARCH "ia64"
-#define CPUID(op,reg) ASM("mov %0=cpuid[%1]"\
-   : "=r" (value)\
-   : "r" (reg))
-#define HARDCLOCK(x) ASM("mov %0=ar.itc" : "=r"(x))
-#define HASCPUID(x) x=1
+#ifdef HAVE_ISA_S390
+#define ARCH "s390"
+#define HARDCLOCK(x) { unsigned long long tsc; ASM("stck %0":"=Q"(tsc)::"cc"); x = (unsigned int)tsc; }
 #endif
+/**
+ * /Outside the x86 family
+ */
 #endif
 /**
  *  Use the "&&" extension to calculate the LOOP_PT
  */
 #define CODE_PT(a)   a
 #define LOOP_PT(a)   &&loop##a
+
 /* ################################################################################# */
 #endif
 /**
@@ -144,10 +136,6 @@ unsigned int havege_collect(volatile H_PTR hptr) __attribute__((optimize(1)));
 #if _MSVC_VERS
 /* ################################################################################# */
 #define ARCH "x86"
-/**
- ** The collection mechanism
- */
-unsigned int havege_collect(volatile H_PTR hptr);
 /**
  * For the MSVC compilers V8 and above
  */
@@ -159,17 +147,30 @@ unsigned int havege_collect(volatile H_PTR hptr);
 /**
  * Normalize to the gcc interface
  */
-#define CPUID(level,p) return __cpuidx(p, p[3], level)
+#define CPUID(level,p) return __cpuidx(p, level, p[2])
 #define HASCPUID(p) \
   {
   CPUID(0,a,b,c,d)
   }  
 /**
- * Use the __ReturnAddress intrisic to calculate the LOOP_PT
+ * Use the __ReturnAddress intrinsic to calculate the LOOP_PT
  */
 #define CODE_PT(a) __ReturnAddress()
 #define LOOP_PT(a) 0
 #endif
 /* ################################################################################# */
+
+/**
+ * Configuration defaults
+ */
+#ifndef GENERIC_DCACHE
+#define GENERIC_DCACHE 16
+#endif
+#ifndef GENERIC_ICACHE
+#define GENERIC_ICACHE 16
+#endif
+#ifndef LOOP_CT
+#define LOOP_CT 40
+#endif
 
 #endif

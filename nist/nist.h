@@ -28,3 +28,6 @@ double psi2 (int m, int n, int *ARRAY, int PT);
  */
 void __ogg_fdrffti(int n, double *wsave, int *ifac);
 void __ogg_fdrfftf(int n,double *r,double *wsave,int *ifac);
+
+char *GetBaseDir(void);
+

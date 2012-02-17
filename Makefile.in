@@ -14,7 +14,6 @@
 # PARTICULAR PURPOSE.
 
 @SET_MAKE@
-
 VPATH = @srcdir@
 pkgdatadir = $(datadir)/@PACKAGE@
 pkgincludedir = $(includedir)/@PACKAGE@
@@ -50,29 +49,6 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
-am__vpath_adj = case $$p in \
-    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
-    *) f=$$p;; \
-  esac;
-am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
-am__install_max = 40
-am__nobase_strip_setup = \
-  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
-am__nobase_strip = \
-  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
-am__nobase_list = $(am__nobase_strip_setup); \
-  for p in $$list; do echo "$$p $$p"; done | \
-  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
-  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
-    if (++n[$$2] == $(am__install_max)) \
-      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
-    END { for (dir in files) print dir, files[dir] }'
-am__base_list = \
-  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
-  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-am__installdirs = "$(DESTDIR)$(initdir)"
-SCRIPTS = $(init_SCRIPTS)
 SOURCES =
 DIST_SOURCES =
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
@@ -149,7 +125,8 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 GREP = @GREP@
 HA_CHECK = @HA_CHECK@
-HA_CPPFLAGS = @HA_CPPFLAGS@
+HA_DISTRO = @HA_DISTRO@
+HA_LDFLAGS = @HA_LDFLAGS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -228,23 +205,18 @@ top_srcdir = @top_srcdir@
 # checks to perform is a autoconf substitution
 check_SCRIPTS = @HA_CHECK@
 
-# startup script
-@DAEMON_TRUE@initdir = /etc/init.d
-@DAEMON_TRUE@init_SCRIPTS = init.d/haveged init.d/haveged_fedora
-
 # Files to be included in distribution
-EXTRA_DIST = haveged.spec ent/test.sh ent/entitle.gif init.d/haveged init.d/haveged_fedora \
-                nist/test.sh nist/template9 contrib/fedora12/fix_initrddir_path.patch \
-                contrib/fedora12/fix_sbin_install_location.patch \
-                contrib/fedora12/haveged.spec contrib/fedora12/README \
-		contrib/haveged_fedora
+EXTRA_DIST = haveged.spec ent/test.sh ent/entitle.gif init.d/redhat.in init.d/lsb.in \
+                nist/test.sh nist/template9 \
+                contrib/diags/data_prep.c contrib/diags/bins.p contrib/diags/inc.p \
+                contrib/diags/lognorm.r contrib/diags/lognorm.sh
 
 
 # Scripts run as check target
 EXTRA_SCRIPTS = ent/test.sh nist/test.sh
 
-# Distribution contains source for daemon and 2 tests
-SUBDIRS = src man ent nist
+# Build install script and tests as necessary
+SUBDIRS = src init.d man ent nist
 
 # Perform all check_SCRIPTS
 TESTS = @HA_CHECK@
@@ -303,40 +275,6 @@ $(srcdir)/config.h.in:  $(am__configure_deps)
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
-install-initSCRIPTS: $(init_SCRIPTS)
-	@$(NORMAL_INSTALL)
-	test -z "$(initdir)" || $(MKDIR_P) "$(DESTDIR)$(initdir)"
-	@list='$(init_SCRIPTS)'; test -n "$(initdir)" || list=; \
-	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  if test -f "$$d$$p"; then echo "$$d$$p"; echo "$$p"; else :; fi; \
-	done | \
-	sed -e 'p;s,.*/,,;n' \
-	    -e 'h;s|.*|.|' \
-	    -e 'p;x;s,.*/,,;$(transform)' | sed 'N;N;N;s,\n, ,g' | \
-	$(AWK) 'BEGIN { files["."] = ""; dirs["."] = 1; } \
-	  { d=$$3; if (dirs[d] != 1) { print "d", d; dirs[d] = 1 } \
-	    if ($$2 == $$4) { files[d] = files[d] " " $$1; \
-	      if (++n[d] == $(am__install_max)) { \
-		print "f", d, files[d]; n[d] = 0; files[d] = "" } } \
-	    else { print "f", d "/" $$4, $$1 } } \
-	  END { for (d in files) print "f", d, files[d] }' | \
-	while read type dir files; do \
-	     if test "$$dir" = .; then dir=; else dir=/$$dir; fi; \
-	     test -z "$$files" || { \
-	       echo " $(INSTALL_SCRIPT) $$files '$(DESTDIR)$(initdir)$$dir'"; \
-	       $(INSTALL_SCRIPT) $$files "$(DESTDIR)$(initdir)$$dir" || exit $$?; \
-	     } \
-	; done
-
-uninstall-initSCRIPTS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(init_SCRIPTS)'; test -n "$(initdir)" || exit 0; \
-	files=`for p in $$list; do echo "$$p"; done | \
-	       sed -e 's,.*/,,;$(transform)'`; \
-	test -n "$$list" || exit 0; \
-	echo " ( cd '$(DESTDIR)$(initdir)' && rm -f" $$files ")"; \
-	cd "$(DESTDIR)$(initdir)" && rm -f $$files
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run `make' without going through this Makefile.
@@ -744,12 +682,9 @@ check-am: all-am
 	$(MAKE) $(AM_MAKEFLAGS) $(check_SCRIPTS)
 	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
 check: check-recursive
-all-am: Makefile $(SCRIPTS) config.h
+all-am: Makefile config.h
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(initdir)"; do \
-	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
-	done
 install: install-recursive
 install-exec: install-exec-recursive
 install-data: install-data-recursive
@@ -796,7 +731,7 @@ info: info-recursive
 
 info-am:
 
-install-data-am: install-initSCRIPTS
+install-data-am:
 
 install-dvi: install-dvi-recursive
 
@@ -842,7 +777,7 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-initSCRIPTS
+uninstall-am:
 
 .MAKE: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) all check-am \
 	ctags-recursive install-am install-strip tags-recursive
@@ -856,12 +791,12 @@ uninstall-am: uninstall-initSCRIPTS
 	dvi-am html html-am info info-am install install-am \
 	install-data install-data-am install-dvi install-dvi-am \
 	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-initSCRIPTS install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	installdirs-am maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-generic pdf pdf-am ps ps-am tags \
-	tags-recursive uninstall uninstall-am uninstall-initSCRIPTS
+	install-info install-info-am install-man install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs installdirs-am \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-generic pdf pdf-am ps ps-am tags tags-recursive \
+	uninstall uninstall-am
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
