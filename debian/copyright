@@ -3,11 +3,29 @@ Upstream-Name: haveged
 Source: http://www.issihosts.com/haveged/
 
 Files: *
-Copyright: 2009-2011, Gary Wuertz <gary@issiweb.com>
+Copyright: 2009-2012, Gary Wuertz <gary@issiweb.com>
 License: GPL-3+
 
 Files: debian/*
-Copyright: 2009-2011, Steve Kostecke <steve@debian.org>
+Copyright: 2009-2012, Steve Kostecke <steve@debian.org>
+           2011-2012, Jérémy Bobbio <lunar@debian.org>
+License: GPL-3+
+
+Files: src/havege.c src/havege.h
+       src/havegecollect.c src/havegecollect.h
+       src/havegetune.c
+Copyright: 2009-2012, Gary Wuertz <gary@issiweb.com>
+           2011-2012 BenEleventh Consulting manolson@beneleventh.com
+License: GPL-3+
+
+Files: contrib/diags/data_prep.c
+Copyright: 2009-2011, Gary Wuertz <gary@issiweb.com>
+           2011 BenEleventh Consulting <manolson@beneleventh.com>
+License: GPL-3+
+
+Files: init.d/lsb.in init.d/redhat.in
+Copyright: 2011-2012 Gary Wuertz <gary@issiweb.com>
+           2011-2012 Jirka Hladky <hladky_dot_jiri_at_gmail_com>
 License: GPL-3+
 
 Files: nist/dfft.c
