@@ -1,0 +1,30 @@
+From: =?UTF-8?q?J=C3=A9r=C3=A9my=20Bobbio?= <lunar@debian.org>
+Date: Fri, 6 Apr 2012 17:47:43 +0200
+Subject: Remove support for CPUID on ia64
+
+The current implementation simply fail to build and the 'cpuid' instruction on
+Itanium spreads out value differently than what 'cpuid' does on i386 and amd64.
+So the code needs to be worked out quite differently to work.
+
+In the meantime, disabling CPUID support will make haveged use the default
+cache values on ia64.
+---
+ src/havegecollect.h |    4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/src/havegecollect.h b/src/havegecollect.h
+index 1b92c2c..2c73c00 100644
+--- a/src/havegecollect.h
++++ b/src/havegecollect.h
+@@ -91,11 +91,7 @@
+ 
+ #ifdef HAVE_ISA_IA64
+ #define ARCH "ia64"
+-#define CPUID(op,reg) ASM("mov %0=cpuid[%1]"\
+-   : "=r" (value)\
+-   : "r" (reg))
+ #define HARDCLOCK(x) ASM("mov %0=ar.itc" : "=r"(x))
+-#define HASCPUID(x) x=1
+ #endif
+ 
+ #ifdef HAVE_ISA_SPARC
