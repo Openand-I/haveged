@@ -1,3 +1,11 @@
+haveged (1.4-2) unstable; urgency=low
+
+  * Restore patch to remove broken support for CPUID on ia64.
+  * Update Format line in debian/copyright.
+  * Bump Standards-Version to 3.9.3, no changes required.
+
+ -- Jérémy Bobbio <lunar@debian.org>  Fri, 06 Apr 2012 17:44:55 +0200
+
 haveged (1.4-1) unstable; urgency=low
 
   * New upstream version. (Closes: #660198)
