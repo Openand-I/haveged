@@ -1,3 +1,12 @@
+haveged (1.4-3) unstable; urgency=low
+
+  * Add patch by Sven Hartge to overcome mips build failures:
+    let's make the CUSUM and RANDOM EXCURSION tests be a little more
+    verbose about their progress. That should help us stay under the 5
+    allowed minutes of inactivity.
+
+ -- Jérémy Bobbio <lunar@debian.org>  Tue, 10 Apr 2012 21:48:13 +0200
+
 haveged (1.4-2) unstable; urgency=low
 
   * Restore patch to remove broken support for CPUID on ia64.
