@@ -1,7 +1,7 @@
 #!/bin/sh
 #
-# Copyright 2011 Jirka Hladky hladky_dot_jiri_at_gmail_com
-# Copyright 2009-2011 Gary Wuertz gary@issiweb.com
+# Copyright 2011-2012 Jirka Hladky hladky_dot_jiri_at_gmail_com
+# Copyright 2011-2012 Gary Wuertz gary@issiweb.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,12 +26,13 @@
 # source function library
 . /etc/init.d/functions
 
+HAVEGED_BIN=@SBIN_DIR@/haveged
+
 RETVAL=0
 prog="haveged"
 LOCKFILE=/var/lock/subsys/$prog
 
-HAVEGED_BIN=/usr/sbin/haveged
-test -x ${HAVEGED_BIN} || { echo "Cannot find haveged executable at /usr/sbin" 1>&2 ; exit 5 ; }
+test -x ${HAVEGED_BIN} || { echo "Cannot find haveged executable ${HAVEGED_BIN}" 1>&2 ; exit 5 ; }
 
 case "$1" in
 start)

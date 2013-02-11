@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "nist.h"
 
 #define _32MB (32 * 1024 * 1024)
@@ -9,26 +10,33 @@
 
 
 static int random_pool1 [_32MB];
+char basename[FILENAME_MAX];
+
+char *GetBaseDir(void)
+{
+  return basename;
+}
 
 int main(int argc, char **argv)
 {
 char *filename = "";
 FILE *fp = stdin;
-long lSize=0;
 long result=0;
+int  i;
 
 if (argc!=2) {
   printf("Usage sts <file>\n");
   return 1;
   }
+strcpy(basename, argv[0]);
+for(i=strlen(basename);i>0 && basename[i-1]!='/' && basename[i-1]!='\\';i--) ;
+basename[i] = 0;
+
 filename = argv[1];
 if ((fp = fopen(filename, "rb")) == NULL) {
   printf("Cannot open file %s\n", filename);
   return 2;
   }
-fseek(fp,0,SEEK_END);
-lSize = ftell(fp);
-rewind(fp);
 result = fread(random_pool1,sizeof(int),_04MB,fp);
 fclose(fp);
 if (result!=_04MB) {

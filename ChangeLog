@@ -1,6 +1,16 @@
+v1.4 (Feb 07, 2012)
+ * Add s390 architecture. Thanks to Dan Horak and Jiri Hladky
+ * Add generic architecture with clock_gettime() timer.
+ * Rewrite collection loop to support multiple instances and new diagnostics
+ * Rewrite tuning mechanism to add virtual file system mining and correct cpuid bugs
+ * Add prototype multi-thread collection option
+ * Reduce collection buffer size to .5MB
+ * Improve/correct build and install
+ * Add new invocation options to support new features.
+ 
 v1.3 (Oct 23, 2011)
  * Intergrate contributions by Jirka Hladky to fine tune collection implementation.
-   Add non-daemon interface with option to send continuous stream of output to stdout.
+ * Add non-daemon interface with option to send continuous stream of output to stdout.
 
 v1.2 (June 26, 2011))
  * Address compiler issues by using compiler intrinsics.
