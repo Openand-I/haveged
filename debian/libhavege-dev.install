@@ -1,0 +1,4 @@
+usr/share/man/man3/libhavege.3
+usr/include/haveged/havege.h
+usr/lib/*/libhavege.a
+usr/lib/*/libhavege.so

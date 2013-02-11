@@ -24,3 +24,48 @@ Description: Linux entropy source using the HAVEGE algorithm
  .
  More information about HAVEGE is available at
  http://www.irisa.fr/caps/projects/hipsor/
+
+Package: libhavege1
+Section: libs
+Architecture: linux-any
+Multi-Arch: same
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Pre-Depends: ${misc:Pre-Depends}
+Description: entropy source using the HAVEGE algorithm - shared library
+ libhavege is a library that implements the HAVEGE (HArdware Volatile Entropy
+ Gathering and Expansion). It provides a random number generator and it's
+ associated tuning and testing factilities.
+ .
+ More information about HAVEGE is available at
+ http://www.irisa.fr/caps/projects/hipsor/
+ .
+ This package contains the shared library.
+
+Package: libhavege1-dbg
+Section: debug
+Architecture: linux-any
+Multi-Arch: same
+Depends: libhavege1 (= ${binary:Version}), ${misc:Depends}
+Description: entropy source using the HAVEGE algorithm - debug symbols
+ libhavege is a library that implements the HAVEGE (HArdware Volatile Entropy
+ Gathering and Expansion). It provides a random number generator and it's
+ associated tuning and testing factilities.
+ .
+ More information about HAVEGE is available at
+ http://www.irisa.fr/caps/projects/hipsor/
+ .
+ This package contains the debug symbols.
+
+Package: libhavege-dev
+Section: libdevel
+Architecture: linux-any
+Depends: libhavege1 (= ${binary:Version}), ${misc:Depends}
+Description: entropy source using the HAVEGE algorithm - development files
+ libhavege is a library that implements the HAVEGE (HArdware Volatile Entropy
+ Gathering and Expansion). It provides a random number generator and it's
+ associated tuning and testing factilities.
+ .
+ More information about HAVEGE is available at
+ http://www.irisa.fr/caps/projects/hipsor/
+ .
+ This package contains the development files.
