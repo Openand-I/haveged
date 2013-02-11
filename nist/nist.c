@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include "nist.h"
 
@@ -10,7 +11,7 @@
 
 
 static int random_pool1 [_32MB];
-char basename[FILENAME_MAX];
+char basename[FILENAME_MAX+1];
 
 char *GetBaseDir(void)
 {
@@ -22,15 +23,16 @@ int main(int argc, char **argv)
 char *filename = "";
 FILE *fp = stdin;
 long result=0;
-int  i;
 
 if (argc!=2) {
   printf("Usage sts <file>\n");
   return 1;
   }
-strcpy(basename, argv[0]);
-for(i=strlen(basename);i>0 && basename[i-1]!='/' && basename[i-1]!='\\';i--) ;
-basename[i] = 0;
+
+/* Template file must be in current working directory */
+
+(void)getcwd(basename,FILENAME_MAX);
+strcat(basename, "/");
 
 filename = argv[1];
 if ((fp = fopen(filename, "rb")) == NULL) {

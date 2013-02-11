@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2012 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by

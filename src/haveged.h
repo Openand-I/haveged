@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2012 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -18,27 +18,30 @@
  */
 #ifndef HAVEGED_H
 #define HAVEGED_H
+
+#include "havege.h"
 /**
  * Settings - default values declared in haveged.c
  */
 struct pparams  {
    char           *daemon;          /* Daemon name - default is "haveged"           */
-   unsigned int   setup;            /* setup options                                */
-   unsigned int   ncores;           /* number of cores to use                       */
-   unsigned int   buffersz;         /* size of collection buffer (kb)               */
-   unsigned int   detached;         /* non-zero of daemonized                       */
-   unsigned int   foreground;       /* non-zero if running in foreground            */
-   unsigned int   run_level;        /* type of run 0=daemon,1=setup,2=pip,sample kb */
-   unsigned int   d_cache;          /* size of data cache (kb)                      */
-   unsigned int   i_cache;          /* size of instruction cache (kb)               */
-   unsigned int   low_water;        /* write threshold to set - 0 for none          */
-   char           *os_rel;          /* path to operating sytem release              */
+   H_UINT         setup;            /* setup options                                */
+   H_UINT         ncores;           /* number of cores to use                       */
+   H_UINT         buffersz;         /* size of collection buffer (kb)               */
+   H_UINT         detached;         /* non-zero if daemonized                       */
+   H_UINT         foreground;       /* non-zero if running in foreground            */
+   H_UINT         run_level;        /* type of run 0=daemon,1=setup,2=pip,sample kb */
+   H_UINT         d_cache;          /* size of data cache (kb)                      */
+   H_UINT         i_cache;          /* size of instruction cache (kb)               */
+   H_UINT         low_water;        /* write threshold to set - 0 for none          */
+   char           *tests_config;    /* online test configuration                    */
+   char           *os_rel;          /* path to operating system release             */
    char           *pid_file;        /* name of pid file                             */
    char           *poolsize;        /* path to poolsize                             */
    char           *random_device;   /* path to random device                        */
    char           *sample_in;       /* input path for injection diagnostic          */
    char           *sample_out;      /* path to sample file                          */
-   unsigned int   verbose;          /* Output level for log or stdout               */
+   H_UINT         verbose;          /* Output level for log or stdout               */
    char           *version;         /* Our version                                  */
    char           *watermark;       /* path to write_wakeup_threshold               */
   };
@@ -49,13 +52,27 @@ struct pparams  {
 /**
  * Setup options (for app)
  */
-#define   RUN_AS_APP    0x01
-#define   RANGE_SPEC    0x02
-#define   USE_STDOUT    0x04
-#define   CAPTURE       0x08
-#define   INJECT        0x10
-#define   RUN_IN_FG     0x20
-#define   SET_LWM       0x40
-#define   MULTI_CORE    0x80
+#define   RUN_AS_APP    0x001
+#define   RANGE_SPEC    0x002
+#define   USE_STDOUT    0x004
+#define   CAPTURE       0x008
+#define   INJECT        0x010
+#define   RUN_IN_FG     0x020
+#define   SET_LWM       0x040
+#define   MULTI_CORE    0x080
+#define   TEST_TEST     0x100
+/**
+ * Default tests settings
+ */
+#define  TESTS_DEFAULT_APP "ta8b"   /* startup tests                    */
+#define  TESTS_DEFAULT_RUN "ta8bcb" /* startup + continuous B           */
+/**
+ * Status/monitoring information
+ */
+typedef struct {
+   H_UINT         n_fill;           /* number times filled              */
+   double         etime;            /* milliseconds for last collection */
+   double         estart;           /* start time for calculation       */
+} H_METER;
 
 #endif

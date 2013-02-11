@@ -73,14 +73,14 @@ int main(int argc, char **argv)
       "b", "buffer",    "1", "buffer size (k): default 1024",
       "f", "file",      "1", "output file name: default is '-' (stdout)",
       "i", "inject",    "1", "inject 0=2up, 1=1up, 2=raw 1up",
-      "o", "output",    "1", "[bin|delta|inject|raw|wrap] data",
+      "o", "output",    "1", "[bin|delta|inject|raw|xor|wrap] data",
       "r", "repeat",    "1", "repeat inject sequence",
       "s", "start",     "1", "start value inject sequence",
       "u", "upper",     "1", "inject sequence upper bound",
       "v", "verbose",   "1", "verbose reporting",
       "h", "help",      "0", "This help"
       };
-   char  *outputs[] = {"bin","delta","inject","raw","wrap",NULL};
+   char  *outputs[] = {"bin","delta","inject","raw","xor","wrap",NULL};
    static int nopts = sizeof(cmds)/(4*sizeof(char *));
    struct option long_options[nopts+1];
    char short_options[1+nopts*2];
@@ -107,6 +107,7 @@ int main(int argc, char **argv)
    do {
       c = getopt_long (argc, argv, short_options, long_options, NULL);
       switch(c) {
+         case 'b':
             params.bsize = atoi(optarg);
             params.xs = params.bsize;
             while(params.xs >= 10.0)
@@ -175,7 +176,7 @@ int main(int argc, char **argv)
          case 'b':
             matrix_output(&params);
             break;
-         case 'd':   case 'r':   case 'w':
+         case 'd':   case 'r':  case 'x':  case 'w':
             sequence_output(&params);
             break;
       }
@@ -296,6 +297,9 @@ static void sequence_output(struct pparams *p)
                   delta = prev - cur;
                else delta = cur - prev;
                fprintf(p->output,"%g\t%g\n", n * 10.0/1024.0, log10(delta));
+               break;
+            case 'x':
+               fprintf(p->output,"%g\t%g\n", n * 10.0/1024.0, log10(cur^prev));
                break;
             case 'r':
                fprintf(p->output,"%g\t%g\n", n * 10.0/1024.0, 1.0 * cur);

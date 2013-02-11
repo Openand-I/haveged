@@ -1,3 +1,32 @@
+v1.7  (Jan 15, 2013)
+ * Add havege_status_dump() as basis for haveged diagnositics
+ * Provide sample spec to build haveged and haveged-devel
+ * Add contrib/build to provide build support
+ * Modify build to use libtool
+ * Retname base types to alias stdint.h types to allow 'fixes' if necessary
+ * Rename all public functions to follow havege_* naming convention
+ * Sanitize havege.h to be include file for devel package
+ * Add destroy() to havege for library use.
+ * Move all remaining static vars to allocated memory.
+ * Rework include file structure to eliminate include sequence errors.
+ * Fix (rare) segfault in test0 caused by 1.6 alignment fix
+ 
+v1.6a (Dec 18, 2012)
+ * Fix typo in configure.ac
+ 
+v1.6 (Dec 15, 2012)
+ * Correct makefile encoding and defaults description
+ * Make clock_gettime a build option and correct dependencies when used.
+ * Fix alignment fault on arm64 in procedure A test0.
+
+v1.5 (Aug 12, 2012)
+ * Add online tests based on AIS-31 controlled by --enable-olt build option
+ * Add -o option to specify online tests to perform
+ * Add -p option to specify the pid location.
+ * Fix -F option to not take argument - i.e. now a switch
+ * Factor diagnostic methods for capture and inject for better performance
+ * Fix install target, move to bin and eliminate script if not daemon, now use sysv and systemd templates 
+ 
 v1.4 (Feb 07, 2012)
  * Add s390 architecture. Thanks to Dan Horak and Jiri Hladky
  * Add generic architecture with clock_gettime() timer.
