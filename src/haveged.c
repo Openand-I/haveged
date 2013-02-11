@@ -1,7 +1,8 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2012 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
+ ** Copyright 2011-2012 BenEleventh Consulting manolson@beneleventh.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -20,7 +21,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <unistd.h>
 #include <string.h>
 #include <stdarg.h>
 #include <signal.h>
@@ -28,6 +28,7 @@
 #include <sys/time.h>
 
 #ifndef NO_DAEMON
+#include <unistd.h>
 #include <syslog.h>
 #include <sys/ioctl.h>
 #include <asm/types.h>
@@ -36,21 +37,21 @@
 
 #include <errno.h>
 #include "haveged.h"
-#include "havege.h"
 /**
  * Parameters
  */
 static struct pparams defaults = {
   .daemon         = PACKAGE,
   .setup          = 0,
-  .ncores         = 1,
-  .buffersz       = NDSIZECOLLECT,
+  .ncores         = 0,
+  .buffersz       = 0,
   .detached       = 0,
   .foreground     = 0,
   .d_cache        = 0,
   .i_cache        = 0,
   .run_level      = 0,
   .low_water      = 0,
+  .tests_config   = 0,
   .os_rel         = "/proc/sys/kernel/osrelease",
   .pid_file       = "/var/run/haveged.pid",
   .poolsize       = "/proc/sys/kernel/random/poolsize",
@@ -58,239 +59,42 @@ static struct pparams defaults = {
   .sample_in      = "data",
   .sample_out     = "sample",
   .verbose        = 0,
-  .version        = PACKAGE_VERSION,
   .watermark      = "/proc/sys/kernel/random/write_wakeup_threshold"
   };
 struct pparams *params = &defaults;
-
+#ifdef  RAW_IN_ENABLE
+FILE *fd_in;
+/**
+ * The injection diagnostic
+ */
+static int injectFile(volatile H_UINT *pData, H_UINT szData);
+#endif
+/**
+ * havege instance used by application
+ */
+static H_PTR handle = NULL;
 /**
  * Local prototypes
  */
 #ifndef NO_DAEMON
+static H_UINT poolSize = 0;
+
 static void daemonize(void);
 static int  get_poolsize(void);
 static void run_daemon(H_PTR handle);
 static void set_watermark(int level);
 #endif
 
+static void anchor_info(H_PTR h);
 static void error_exit(const char *format, ...);
-static void get_info(H_PTR handle);
 static int  get_runsize(unsigned int *bufct, unsigned int *bufrem, char *bp);
 static char *ppSize(char *buffer, double sz);
+static void print_msg(const char *format, ...);
 
-static void run_app(H_PTR handle, U_INT bufct, U_INT bufres);
-static void show_meterInfo(U_INT id, U_INT event);
+static void run_app(H_PTR handle, H_UINT bufct, H_UINT bufres);
+static void show_meterInfo(H_UINT id, H_UINT event);
 static void tidy_exit(int signum);
 static void usage(int nopts, struct option *long_options, const char **cmds);
-
-#ifndef NO_DAEMON
-/**
- * The usual daemon setup
- */
-static void daemonize(void)
-{
-   FILE *fh;
-   openlog(params->daemon, LOG_CONS, LOG_DAEMON);
-   syslog(LOG_NOTICE, "%s starting up", params->daemon);
-   if (daemon(0, 0) == -1)
-      error_exit("Cannot fork into the background");
-   fh = fopen(params->pid_file, "w");
-   if (!fh)
-      error_exit("Couldn't open PID file \"%s\" for writing: %m.", params->pid_file);
-   fprintf(fh, "%i", getpid());
-   fclose(fh);
-   params->detached = 1;
-}
-/**
- * Run as a daemon writing to random device entropy pool
- */
-static void run_daemon(H_PTR h)
-{
-   int                     random_fd = -1;
-   struct rand_pool_info   *output;
-
-   if (0 != params->run_level) {
-      get_info(h);
-      return;
-      }
-   if (params->foreground==0)
-     daemonize();
-   else printf ("%s starting up\n", params->daemon);
-   if (0 != havege_create(h))
-      error_exit("Couldn't initialize HAVEGE rng %d", h->error);
-   if (params->verbose & VERBOSE)
-     get_info(h);
-   if (params->low_water>0)
-      set_watermark(params->low_water);
-   random_fd = open(params->random_device, O_RDWR);
-   if (random_fd == -1)
-     error_exit("Couldn't open random device: %m");
-
-   output = (struct rand_pool_info *) h->io_buf;
-   for(;;) {
-      int current,nbytes,r;
-
-      fd_set write_fd;
-      FD_ZERO(&write_fd);
-      FD_SET(random_fd, &write_fd);
-      for(;;)  {
-         int rc = select(random_fd+1, NULL, &write_fd, NULL, NULL);
-         if (rc >= 0) break;
-         if (errno != EINTR)
-            error_exit("Select error: %m");
-         }
-      if (ioctl(random_fd, RNDGETENTCNT, &current) == -1)
-         error_exit("Couldn't query entropy-level from kernel");
-      /* get number of bytes needed to fill pool */
-      nbytes = (h->params->poolsize  - current)/8;
-      if(nbytes<1)   continue;
-      /* get that many random bytes */
-      r = (nbytes+sizeof(U_INT)-1)/sizeof(U_INT);
-      if (havege_rng(h, (U_INT *)output->buf, r)<1)
-         error_exit("havege_rng failed! %d", h->error);
-      output->buf_size = nbytes;
-      /* entropy is 8 bits per byte */
-      output->entropy_count = nbytes * 8;
-      if (ioctl(random_fd, RNDADDENTROPY, output) == -1)
-         error_exit("RNDADDENTROPY failed!");
-      }
-}
-/**
- * Get configured poolsize in bits.
- */
-static int get_poolsize(void)
-{
-   FILE *poolsize_fh,*osrel_fh;
-   unsigned int max_bits,major,minor;
-
-   poolsize_fh = fopen(params->poolsize, "rb");
-   if (poolsize_fh) {
-      if (fscanf(poolsize_fh, "%d", &max_bits)!=1)
-         max_bits = -1;
-      fclose(poolsize_fh);
-      osrel_fh = fopen(params->os_rel, "rb");
-      if (osrel_fh) {
-         if (fscanf(osrel_fh,"%d.%d", &major, &minor)<2)
-           major = minor = 0;
-         fclose(osrel_fh);
-         }
-      if (major==2 && minor==4) max_bits *= 8;
-      }
-   else max_bits = -1;
-   if (max_bits < 1)
-      error_exit("Couldn't get poolsize");
-   return max_bits;
-}
-/**
- * Set random write threshold
- */
-static void set_watermark(int level)
-{
-   FILE *wm_fh;
-
-   wm_fh = fopen(params->watermark, "w");
-   if (wm_fh) {
-      fprintf(wm_fh, "%d\n", level);
-      fclose(wm_fh);
-      }
-   else error_exit("Fail:set_watermark()!");
-}
-#endif
-/**
- * Bail....
- */
-static void error_exit(const char *format, ...)
-{
-   char buffer[4096];
-
-   va_list ap;
-   va_start(ap, format);
-   vsnprintf(buffer, sizeof(buffer), format, ap);
-   va_end(ap);
-#ifndef NO_DAEMON
-   if (params->detached!=0) {
-      unlink(params->pid_file);
-      syslog(LOG_INFO, "%s %s", params->daemon, buffer);
-      }
-   else
-#endif
-      fprintf(stderr, "%s %s\n", params->daemon, buffer);
-   exit(1);
-}
-/**
- * Dump static information about the HAVEGE rng
- */
-static void get_info(H_PTR handle)
-{
-char buf[2048];
-
-havege_status(handle, buf, sizeof(buf));
-#ifndef NO_DAEMON
-if (params->detached != 0)
-   syslog(LOG_INFO, "%s\n", buf);
-else
-#endif
-   fprintf(stderr, "%s\n", buf);
-}
-/**
- * Implement fixed point shorthand for run sizes
- */
-static int get_runsize(U_INT *bufct, U_INT *bufrem, char *bp)
-{
-   char        *suffix;
-   double      f;
-   int         p2 = 0;
-   int         p10 = APP_BUFF_SIZE * sizeof(U_INT);
-   long long   ct;
-   
-
-   f = strtod(bp, &suffix);
-   if (f < 0 || strlen(suffix)>1)
-      return 1;
-   switch(*suffix) {
-      case 't': case 'T':
-         p2 += 1;
-      case 'g': case 'G':
-         p2 += 1;
-      case 'm': case 'M':
-         p2 += 1;
-      case 'k': case 'K':
-         p2 += 1;
-      case 0:
-         break;
-      default:
-         return 2;
-      }
-   while(p2-- > 0)
-      f *= 1024;
-   ct = f;
-   if (f != 0 && ct==0)
-      return 3;
-   if ((double) (ct+1) < f)
-      return 3;
-   *bufrem = (U_INT)(ct%p10);
-   *bufct  = (U_INT)(ct/p10);
-   if (*bufct == (ct/p10))
-      return 0;
-   /* hack to allow 16t */
-   ct -= 1;
-   *bufrem = (U_INT)(ct%p10);
-   *bufct  = (U_INT)(ct/p10);
-   return (*bufct == (ct/p10))? 0 : 4;
-}
-#ifdef  RAW_IN_ENABLE
-
-FILE *fd_in;
-/**
- * The injection diagnostic
- */
-static int injectFile(volatile U_INT *pData, U_INT szData)
-{
-   if (fread((void *)pData, sizeof(U_INT), szData, fd_in) != szData)
-      error_exit("Cannot read data in file: %m");
-   return 0;
-}
-#endif
 
 #define  ATOU(a)     (unsigned int)atoi(a)
 /**
@@ -299,26 +103,27 @@ static int injectFile(volatile U_INT *pData, U_INT szData)
 int main(int argc, char **argv)
 {
    static const char* cmds[] = {
-      "b", "buffer",    "1", "Buffer size [KB], default: 128",
-      "d", "data",      "1", "Data cache size [KB]",
-      "i", "inst",      "1", "Instruction cache size [KB]",
-      "f", "file",      "1", "Sample output file,  default: 'sample', '-' for stdout",
-      "F", "Foreground","1", "0=background daemon,!=0 remain attached",
-      "r", "run",       "1", "0=daemon, 1=config info, >1=<r>KB sample",
-      "n", "number",    "1", "Output size in [k|m|g|t] bytes, 0 = unlimited (if stdout)",
-      "s", "source",    "1", "Injection soure file",
-      "t", "threads",   "1", "Number of threads",
-      "v", "verbose",   "1", "Output level 0=minimal,1=config/fill info",
-      "w", "write",     "1", "Set write_wakeup_threshold [bits]",
-      "h", "help",      "0", "This help"
+      "b", "buffer",      "1", "Buffer size [KW], default: 128",
+      "d", "data",        "1", "Data cache size [KB]",
+      "i", "inst",        "1", "Instruction cache size [KB]",
+      "f", "file",        "1", "Sample output file,  default: 'sample', '-' for stdout",
+      "F", "Foreground",  "0", "Run daemon in foreground",
+      "r", "run",         "1", "0=daemon, 1=config info, >1=<r>KB sample",
+      "n", "number",      "1", "Output size in [k|m|g|t] bytes, 0 = unlimited (if stdout)",
+      "o", "onlinetest",  "1", "[t<x>][c<x>] x=[a[n][w]][b[w]] 't'ot, 'c'ontinuous, default: ta8b",
+      "p", "pidfile",     "1", "daemon pidfile, default: /var/run/haveged.pid",
+      "s", "source",      "1", "Injection soure file",
+      "t", "threads",     "1", "Number of threads",
+      "v", "verbose",     "1", "Output level 0=minimal,1=config/fill info",
+      "w", "write",       "1", "Set write_wakeup_threshold [bits]",
+      "h", "help",        "0", "This help"
       };
    static int nopts = sizeof(cmds)/(4*sizeof(char *));
    struct option long_options[nopts+1];
    char short_options[1+nopts*2];
    int c,i,j;
-   U_INT bufct, bufrem;
-   H_PTR handle;
-   CMD_PARAMS cmd;
+   H_UINT bufct, bufrem, ierr;
+   H_PARAMS cmd;
 
 #if NO_DAEMON==1
    params->setup |= RUN_AS_APP;
@@ -332,7 +137,7 @@ int main(int argc, char **argv)
 #if NUMBER_CORES>1
    params->setup |= MULTI_CORE;
 #endif
-
+   params->tests_config = (0 != (params->setup & RUN_AS_APP))? TESTS_DEFAULT_APP : TESTS_DEFAULT_RUN;
 #ifdef SIGHUP
    signal(SIGHUP, tidy_exit);
 #endif
@@ -343,10 +148,16 @@ int main(int argc, char **argv)
 
    for(i=j=0;j<(nopts*4);j+=4) {
       switch(cmds[j][0]) {
+         case 'o':
+#ifdef  ONLINE_TESTS_ENABLE
+            break;
+#else
+            continue;
+#endif
          case 'r':
             if (0!=(params->setup & (INJECT|CAPTURE))) {
                params->daemon = "havege_diagnostic";
-               cmds[j+3] = "0=usage, 1=config_info, 2=capture, 4=inject";
+               cmds[j+3] = "0=usage, 1=anchor_info, 2=capture, 4=inject, 6=inject test";
                }
             else if (0!=(params->setup & RUN_AS_APP))
                continue;
@@ -359,7 +170,7 @@ int main(int argc, char **argv)
             if (0 == (params->setup & MULTI_CORE))
                continue;
             break;
-         case 'w':   case 'F':
+         case 'p':   case 'w':  case 'F':
             if (0 !=(params->setup & RUN_AS_APP))
                continue;
             break;
@@ -379,10 +190,12 @@ int main(int argc, char **argv)
       switch(c) {
          case 'F':
             params->setup |= RUN_IN_FG;
-            params->foreground = ATOU(optarg);
+            params->foreground = 1;
             break;
          case 'b':
             params->buffersz = ATOU(optarg) * 1024;
+            if (params->buffersz<4)
+               error_exit("invalid size %s", optarg);
             break;
          case 'd':
             params->d_cache = ATOU(optarg);
@@ -391,10 +204,9 @@ int main(int argc, char **argv)
             params->i_cache = ATOU(optarg);
             break;
          case 'f':
+            params->sample_out = optarg;
             if (strcmp(optarg,"-") == 0 )
-              params->setup |= USE_STDOUT;
-            else
-              params->sample_out = optarg;
+               params->setup |= USE_STDOUT;
             break;
          case 'n':
             if (get_runsize(&bufct, &bufrem, optarg))
@@ -402,6 +214,12 @@ int main(int argc, char **argv)
             params->setup |= RUN_AS_APP | RANGE_SPEC;
             if (bufct==0 && bufrem==0)
                params->setup |= USE_STDOUT;
+            break;
+         case 'o':
+            params->tests_config = optarg;
+            break;
+         case 'p':
+            params->pid_file = optarg;
             break;
          case 'r':
             params->run_level  = ATOU(optarg);
@@ -429,50 +247,62 @@ int main(int argc, char **argv)
          case -1:
             break;
          }
-   } while (c!=-1);
-   memset(&cmd, 0, sizeof(CMD_PARAMS));
+      } while (c!=-1);
+   memset(&cmd, 0, sizeof(H_PARAMS));
    cmd.collectSize = params->buffersz;
    cmd.icacheSize  = params->i_cache;
    cmd.dcacheSize  = params->d_cache;
    cmd.options     = params->verbose & 0xff;
    cmd.nCores      = params->ncores;
-   cmd.version     = params->version;
+   cmd.testSpec    = params->tests_config;
+   cmd.msg_out     = print_msg;
    if (0 != (params->setup & RUN_AS_APP))
-      cmd.ioSz = APP_BUFF_SIZE * sizeof(U_INT);
+      cmd.ioSz = APP_BUFF_SIZE * sizeof(H_UINT);
 #ifndef NO_DAEMON
    else  {
-      cmd.poolsize = get_poolsize();
-      i = (cmd.poolsize + 7)/8 * sizeof(U_INT);
-      cmd.ioSz = sizeof(struct rand_pool_info) + i *sizeof(U_INT);
+      poolSize = get_poolsize();
+      i = (poolSize + 7)/8 * sizeof(H_UINT);
+      cmd.ioSz = sizeof(struct rand_pool_info) + i *sizeof(H_UINT);
       }
 #endif
-   if (0 != (params->verbose & DEBUG_TIME))
+   if (0 != (params->verbose & H_DEBUG_TIME))
       cmd.metering = show_meterInfo;
-   if (0 !=(params->setup & CAPTURE) && 0 != (params->run_level & 2))
-      cmd.options |= DEBUG_RAW_OUT;
+
+   if (0 !=(params->setup & CAPTURE) && 0 != (params->run_level == 2))
+      cmd.options |= H_DEBUG_RAW_OUT;
 #ifdef  RAW_IN_ENABLE
   if (0 !=(params->setup & INJECT) && 0 != (params->run_level & 4)) {
       fd_in = fopen(params->sample_in, "rb");
       if (NULL == fd_in)
          error_exit("Unable to open: %s", params->sample_in);
-      cmd.options |= DEBUG_RAW_IN;
       cmd.injection = injectFile;
+      if (params->run_level==4)
+         cmd.options |= H_DEBUG_RAW_IN;
+      else cmd.options |= H_DEBUG_TEST_IN;
       }
 #endif
-   handle = havege_init(&cmd);
-   if (H_NOERR != handle->error)
-      error_exit("Couldn't initialize haveged (%d)", handle->error);
+   handle = havege_create(&cmd);
+   ierr = handle==NULL? H_NOHANDLE : handle->error;
+   switch(ierr) {
+      case H_NOERR:
+         break;
+      case H_NOTESTSPEC:
+         error_exit("unrecognized test setup: %s", cmd.testSpec);
+         break;
+      default:
+         error_exit("Couldn't initialize haveged (%d)", ierr);
+   }
    if (0 != (params->setup & RUN_AS_APP)) {
       if (0 == (params->setup & RANGE_SPEC)) {
          if (params->run_level > 1)
             if (0!=(params->setup & (INJECT|CAPTURE)))
               usage(nopts, long_options, cmds);
             else run_app(handle,
-               params->run_level/sizeof(U_INT),
-              (params->run_level%sizeof(U_INT))*1024
+               params->run_level/sizeof(H_UINT),
+              (params->run_level%sizeof(H_UINT))*1024
               );
          else if (params->run_level==1 || 0 != (params->verbose & 1))
-            get_info(handle);
+            anchor_info(handle);
          else usage(nopts, long_options, cmds);
          }
       else run_app(handle, bufct, bufrem);
@@ -480,13 +310,233 @@ int main(int argc, char **argv)
 #ifndef NO_DAEMON
    else run_daemon(handle);
 #endif
-   havege_exit(0);
+   havege_destroy(handle);
    exit(0);
 }
+#ifndef NO_DAEMON
+/**
+ * The usual daemon setup
+ */
+static void daemonize(     /* RETURN: nothing   */
+   void)                   /* IN: nothing       */
+{
+   FILE *fh;
+   openlog(params->daemon, LOG_CONS, LOG_DAEMON);
+   syslog(LOG_NOTICE, "%s starting up", params->daemon);
+   if (daemon(0, 0) == -1)
+      error_exit("Cannot fork into the background");
+   fh = fopen(params->pid_file, "w");
+   if (!fh)
+      error_exit("Couldn't open PID file \"%s\" for writing: %s.", params->pid_file, strerror(errno));
+   fprintf(fh, "%i", getpid());
+   fclose(fh);
+   params->detached = 1;
+}
+/**
+ * Get configured poolsize
+ */
+static int get_poolsize(   /* RETURN: number of bits  */
+   void)                   /* IN: nothing             */
+{
+   FILE *poolsize_fh,*osrel_fh;
+   unsigned int max_bits,major,minor;
+
+   poolsize_fh = fopen(params->poolsize, "rb");
+   if (poolsize_fh) {
+      if (fscanf(poolsize_fh, "%d", &max_bits)!=1)
+         max_bits = -1;
+      fclose(poolsize_fh);
+      osrel_fh = fopen(params->os_rel, "rb");
+      if (osrel_fh) {
+         if (fscanf(osrel_fh,"%d.%d", &major, &minor)<2)
+           major = minor = 0;
+         fclose(osrel_fh);
+         if (major==2 && minor==4) max_bits *= 8;
+         }
+      }
+   else max_bits = -1;
+   if (max_bits < 1)
+      error_exit("Couldn't get poolsize");
+   return max_bits;
+}
+/**
+ * Run as a daemon writing to random device entropy pool
+ */
+static void run_daemon(    /* RETURN: nothing   */
+   H_PTR h)                /* IN: app instance  */
+{
+   int                     random_fd = -1;
+   struct rand_pool_info   *output;
+
+   if (0 != params->run_level) {
+      anchor_info(h);
+      return;
+      }
+   if (params->foreground==0)
+     daemonize();
+   else printf ("%s starting up\n", params->daemon);
+   if (0 != havege_run(h))
+      error_exit("Couldn't initialize HAVEGE rng %d", h->error);
+   if (params->verbose & H_VERBOSE)
+     anchor_info(h);
+   if (params->low_water>0)
+      set_watermark(params->low_water);
+   random_fd = open(params->random_device, O_RDWR);
+   if (random_fd == -1)
+     error_exit("Couldn't open random device: %s", strerror(errno));
+
+   output = (struct rand_pool_info *) h->io_buf;
+   for(;;) {
+      int current,nbytes,r;
+
+      fd_set write_fd;
+      FD_ZERO(&write_fd);
+      FD_SET(random_fd, &write_fd);
+      for(;;)  {
+         int rc = select(random_fd+1, NULL, &write_fd, NULL, NULL);
+         if (rc >= 0) break;
+         if (errno != EINTR)
+            error_exit("Select error: %s", strerror(errno));
+         }
+      if (ioctl(random_fd, RNDGETENTCNT, &current) == -1)
+         error_exit("Couldn't query entropy-level from kernel");
+      /* get number of bytes needed to fill pool */
+      nbytes = (poolSize  - current)/8;
+      if(nbytes<1)   continue;
+      /* get that many random bytes */
+      r = (nbytes+sizeof(H_UINT)-1)/sizeof(H_UINT);
+      if (havege_rng(h, (H_UINT *)output->buf, r)<1)
+         error_exit("RNG failed! %d", h->error);
+      output->buf_size = nbytes;
+      /* entropy is 8 bits per byte */
+      output->entropy_count = nbytes * 8;
+      if (ioctl(random_fd, RNDADDENTROPY, output) == -1)
+         error_exit("RNDADDENTROPY failed!");
+      }
+}
+/**
+ * Set random write threshold
+ */
+static void set_watermark( /* RETURN: nothing   */
+   int level)              /* IN: threshold     */
+{
+   FILE *wm_fh;
+
+   wm_fh = fopen(params->watermark, "w");
+   if (wm_fh) {
+      fprintf(wm_fh, "%d\n", level);
+      fclose(wm_fh);
+      }
+   else error_exit("Fail:set_watermark()!");
+}
+#endif
+/**
+ * Display handle information
+ */
+static void anchor_info(H_PTR h)
+{
+   char       buf[120];
+   H_SD_TOPIC topics[4] = {H_SD_TOPIC_BUILD, H_SD_TOPIC_TUNE, H_SD_TOPIC_TEST, H_SD_TOPIC_SUM};
+   int        i;
+   
+   for(i=0;i<4;i++)
+      if (havege_status_dump(h, topics[i], buf, 120)>0)
+         print_msg("%s\n", buf);
+}
+/**
+ * Bail....
+ */
+static void error_exit(    /* RETURN: nothing   */
+   const char *format,     /* IN: msg format    */
+   ...)                    /* IN: varadic args  */
+{
+   char buffer[4096];
+
+   va_list ap;
+   va_start(ap, format);
+   vsnprintf(buffer, sizeof(buffer), format, ap);
+   va_end(ap);
+#ifndef NO_DAEMON
+   if (params->detached!=0) {
+      unlink(params->pid_file);
+      syslog(LOG_INFO, "%s %s", params->daemon, buffer);
+      }
+   else
+#endif
+      fprintf(stderr, "%s %s\n", params->daemon, buffer);
+   havege_destroy(handle);
+   exit(1);
+}
+/**
+ * Implement fixed point shorthand for run sizes
+ */
+static int get_runsize(    /* RETURN: the size        */
+   H_UINT *bufct,          /* OUT: nbr app buffers    */
+   H_UINT *bufrem,         /* OUT: residue            */
+   char *bp)               /* IN: the specification   */
+{
+   char        *suffix;
+   double      f;
+   int         p2 = 0;
+   int         p10 = APP_BUFF_SIZE * sizeof(H_UINT);
+   long long   ct;
+   
+
+   f = strtod(bp, &suffix);
+   if (f < 0 || strlen(suffix)>1)
+      return 1;
+   switch(*suffix) {
+      case 't': case 'T':
+         p2 += 1;
+      case 'g': case 'G':
+         p2 += 1;
+      case 'm': case 'M':
+         p2 += 1;
+      case 'k': case 'K':
+         p2 += 1;
+      case 0:
+         break;
+      default:
+         return 2;
+      }
+   while(p2-- > 0)
+      f *= 1024;
+   ct = f;
+   if (f != 0 && ct==0)
+      return 3;
+   if ((double) (ct+1) < f)
+      return 3;
+   *bufrem = (H_UINT)(ct%p10);
+   *bufct  = (H_UINT)(ct/p10);
+   if (*bufct == (ct/p10))
+      return 0;
+   /* hack to allow 16t */
+   ct -= 1;
+   *bufrem = (H_UINT)(ct%p10);
+   *bufct  = (H_UINT)(ct/p10);
+   return (*bufct == (ct/p10))? 0 : 4;
+}
+#ifdef  RAW_IN_ENABLE
+/**
+ * The injection diagnostic
+ */
+static int injectFile(     /* RETURN: not used  */
+   volatile H_UINT *pData, /* OUT: data buffer  */
+   H_UINT szData)          /* IN: H_UINT needed  */
+{
+   int r;
+
+   if ((r=fread((void *)pData, sizeof(H_UINT), szData, fd_in)) != szData)
+      error_exit("Cannot read data in file: %d!=%d", r, szData);
+   return 0;
+}
+#endif
 /**
  * Pretty print the collection size
  */
-static char *ppSize(char *buffer, double sz)
+static char *ppSize(       /* RETURN: the formated size  */
+   char *buffer,           /* IN: work space             */
+   double sz)              /* IN: the size               */
 {
    char   units[] = {'T', 'G', 'M', 'K', 0};
    double factor  = 1024.0 * 1024.0 * 1024.0 * 1024.0;
@@ -501,16 +551,39 @@ static char *ppSize(char *buffer, double sz)
    return buffer;
 }
 /**
+ * Execution notices - to stderr or syslog
+ */
+static void print_msg(     /* RETURN: nothing   */
+   const char *format,     /* IN: format string */
+   ...)                    /* IN: args          */
+{
+   char buffer[128];
+   
+   va_list ap;
+   va_start(ap, format);
+   snprintf(buffer, sizeof(buffer), "%s: %s", params->daemon, format);
+#ifndef NO_DAEMON
+   if (params->detached != 0)
+      vsyslog(LOG_INFO, buffer, ap);
+   else
+#endif
+   vfprintf(stderr, buffer, ap);
+   va_end(ap);
+}
+/**
 * Run as application writing to a file
 */
-static void run_app(H_PTR h, U_INT bufct, U_INT bufres)
+static void run_app(       /* RETURN: nothing         */
+   H_PTR h,                /* IN: app instance        */
+   H_UINT bufct,           /* IN: # buffers to fill   */
+   H_UINT bufres)          /* IN: # bytes extra       */
 {
-   U_INT    *buffer;
+   H_UINT   *buffer;
    FILE     *fout = NULL;
-   U_INT     ct=0;
+   H_UINT    ct=0;
    int       limits = bufct;
 
-   if (0 != havege_create(h))
+   if (0 != havege_run(h))
       error_exit("Couldn't initialize HAVEGE rng %d", h->error);
    if (0 != (params->setup & USE_STDOUT)) {
       params->sample_out = "stdout";
@@ -519,76 +592,65 @@ static void run_app(H_PTR h, U_INT bufct, U_INT bufres)
    else if (!(fout = fopen (params->sample_out, "wb")))
       error_exit("Cannot open file <%s> for writing.\n", params->sample_out);
    limits = bufct!=0? 1 : bufres != 0;
-   buffer = (U_INT *)h->io_buf;
+   buffer = (H_UINT *)h->io_buf;
    if (limits)
       fprintf(stderr, "Writing %s output to %s\n",
-         ppSize((char *)buffer, (1.0 * bufct) * APP_BUFF_SIZE * sizeof(U_INT) + bufres), params->sample_out);
+         ppSize((char *)buffer, (1.0 * bufct) * APP_BUFF_SIZE * sizeof(H_UINT) + bufres), params->sample_out);
    else fprintf(stderr, "Writing unlimited bytes to stdout\n");
-   if (params->verbose & VERBOSE)
-      get_info(h);
    while(!limits || ct++ < bufct) {
       if (havege_rng(h, buffer, APP_BUFF_SIZE)<1)
-         error_exit("havege_rng failed %d!", h->error);
-      if (fwrite (buffer, 1, APP_BUFF_SIZE * sizeof(U_INT), fout) == 0)
-         error_exit("Cannot write data in file: %m");
+         error_exit("RNG failed %d!", h->error);
+      if (fwrite (buffer, 1, APP_BUFF_SIZE * sizeof(H_UINT), fout) == 0)
+         error_exit("Cannot write data in file: %s", strerror(errno));
    }
-   ct = (bufres + sizeof(U_INT) - 1)/sizeof(U_INT);
+   ct = (bufres + sizeof(H_UINT) - 1)/sizeof(H_UINT);
    if (ct) {
       if (havege_rng(h, buffer, ct)<1)
-         error_exit("havege_rng failed %d!", h->error);
+         error_exit("RNG failed %d!", h->error);
       if (fwrite (buffer, 1, bufres, fout) == 0)
-         error_exit("Cannot write data in file: %m");
+         error_exit("Cannot write data in file: %s", strerror(errno));
       }
    fclose(fout);
+   if (params->verbose & H_VERBOSE)
+      anchor_info(h);
 }
 /**
  * Show collection info.
  */
-static void show_meterInfo(U_INT id, U_INT event)
+static void show_meterInfo(      /* RETURN: nothing   */
+   H_UINT id,                    /* IN: identifier    */
+   H_UINT event)                 /* IN: start/stop    */
 {
    struct timeval tm;
    /* N.B. if multiple thread, each child gets its own copy of this */
-   static H_STATUS status;
+   static H_METER status;
 
    gettimeofday(&tm, NULL);
-   if (event == 0) {
-      status.tmp_sec = tm.tv_sec;
-      status.tmp_usec = tm.tv_usec;
-      }
+   if (event == 0)
+      status.estart = ((double)tm.tv_sec*1000.0 + (double)tm.tv_usec/1000.0);
    else {
-      status.etime =  (tm.tv_sec - status.tmp_sec)*1000000 +
-                              tm.tv_usec - status.tmp_usec;
+      status.etime  = ((double)tm.tv_sec*1000.0 + (double)tm.tv_usec/1000.0);
+      if ((status.etime -= status.estart)<0.0)
+         status.etime=0.0;
       status.n_fill += 1;
-#ifndef NO_DAEMON
-      if (params->detached!=0)
-         syslog(LOG_INFO, "%s:%d fill %d us\n", params->daemon, id, status.etime);
-      else
-#endif
-      if (params->run_level > 0)
-         fprintf(stderr, "%s:%d fill %d us\n", params->daemon, id, status.etime);
-      else printf("%s:%d fill %d us\n", params->daemon, id, status.etime);
+      print_msg("%d fill %g ms\n", id, status.etime);
       }
 }
 /**
  * Signal handler
  */
-static void tidy_exit(int signum)
+static void tidy_exit(           /* OUT: nothing      */
+   int signum)                   /* IN: signal number */
 {
-   havege_exit(0);
-#ifndef NO_DAEMON
-   if (params->detached!=0) {
-      unlink(params->pid_file);
-      syslog(LOG_NOTICE, "%s stopping due to signal %d\n", params->daemon, signum);
-      }
-   else
-#endif
-   fprintf(stderr, "%s stopping due to signal %d\n", params->daemon, signum);
-   exit(0);
+   error_exit("Stopping due to signal %d\n", signum);
 }
 /**
- * usage
+ * send usage display to stderr
  */
-static void usage(int nopts, struct option *long_options, const char **cmds)
+static void usage(               /* OUT: nothing            */
+   int nopts,                    /* IN: number of options   */
+   struct option *long_options,  /* IN: long options        */
+   const char **cmds)            /* IN: associated text     */
 {
    int i, j;
    

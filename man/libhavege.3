@@ -1,0 +1,108 @@
+.TH libhavege 3  "January 15, 2013" "version 1.0" "LIBRARY FUNCTIONS"
+.SH NAME
+libhavege, havege_create, havege_run, havege_rng, havege_destroy, havege_status, havege_status_dump \- haveged RNG
+.SH SYNOPSIS
+.HP
+
+.P
+.nf
+#include <haveged/havege.h>
+H_UINT   *buf;
+H_PARAMS params;
+h_status status;
+char     status_buf[512];
+
+memset(&params, 0, sizof(H_PARAMS));
+H_PTR handle = havege_create(&havege_parameters);
+havege_status(handle, &status);
+buf = handle->io_buf;
+havege_run(handle);
+rc = havege_rng(handle, buf, handle->i_readSz);
+havege_status_dump(handle, H_SD_TOPIC_BUILD, status_buf, sizeof(status_buf));
+havege_destroy(handle);
+.fi
+    
+.SH DESCRIPTION
+.P
+The libhavege library provides the haveged randomn number generator and it's
+associated tuning and testing factilities in a development sub package. All
+haveged conditional build features are preserved and all haveged options not
+directly related to it's daemon or file system interfaces are available. This
+means that the same haveged tuning and testing components are present in the
+library with the equivalent controls provided by the haveged command line. 
+
+
+.SH API methods
+.P
+The libhavege library uses the opaque handle technique to manage it's required
+resources. Errors are returned in the "error" member of the handle. The
+havege_destroy() method should be called to dispose of any resources
+claimed by havege_create().
+.P
+H_PTR havege_create(H_PARAMS *params);
+
+Create an anchor. The caller should check for a non-null return value with
+a error value of H_NOERR. Any non-null return should be disposed of by a
+call to havege_destroy() to free any resources. Possible error values: H_NOERR,
+H_NOTESTSPEC, H_NOBUF, H_NOTESTMEM, H_NOINIT
+
+.P
+void havege_destroy(H_PTR hptr);
+
+This method frees all allocated anchor resources. If the multi-core option
+is used, this method should be called from a signal handler to prevent zombie
+processes. If called by the process that called haveged_create(), hptr will be
+freed when all child processes (if any) have terminated. If called by a child
+process, H_EXIT will be set and all children awakened to exit.
+
+.P
+int havege_rng(H_PTR hptr, H_UINT *buf, H_UINT sz);
+
+Read random bytes from an active anchor. Note that the read must take place
+within the allocated buffer, hptr->io_buf, and the range is specified
+in number of H_UINT to read. If the multi-core option is used, this buffer
+is memory mapped between collectors. Possible error values: H_NOERR, H_NOTESRUN,
+H_NOPOST, H_NODONE, H_NORQST, H_NOCOMP, H_EXIT
+
+.P
+int havege_run(H_PTR hptr);
+
+This method starts the anchor RNG. The operation suceeded if the error member
+of the handle is H_NOERR. A failed handle should be disposed of by a call
+to havege_destroy(). Possible error values: H_NOERR, H_NOCOLLECT, H_NOWALK,
+H_NOTESTMEM, H_NOTASK, H_NOTESTTOT, H_NOWAIT, any havege_rng() error.
+
+.P
+void havege_status(H_PTR hptr, H_STATUS hsts);
+ 
+The method fills in the h_status structure with read-only information
+collected from the package build, run-time tuning, and test components.
+ 
+.P
+int havege_status_dump(H_PTR hptr, H_SD_TOPIC topic, char *buf, size_t len);
+
+An alternative to havege_status that formats standard presentations of havege
+status in the supplied buffer. The standard formats are:
+
+.TP 20
+H_SD_TOPIC_BUILD
+ver: %s; arch: %s; vend: %s; opts: (%s); collect: %dK
+.TP 20
+H_SD_TOPIC_TUNE
+cpu: (%s); data: %dK (%s); inst: %dK (%s); idx: %d/%d; sz: %d/%d
+.TP 20
+H_SD_TOPIC_TEST
+[tot tests: %s: A:%d/%d B: %d/%d;][continuous tests: %s: A:%d/%d B: %d/%d;][last entropy estimate %g]
+.TP 20
+H_SD_TOPIC_SUM
+fills: %d, generated: %.4g %c bytes
+
+.SH SEE ALSO
+.TP
+haveged(8)
+
+.SH AUTHOR
+Gary Wuertz <gary@issiweb.com> and Jirka Hladky <hladky jiri AT gmail DOT com> 
+
+.SH REFERENCES
+http://www.issihosts/haveged/

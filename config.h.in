@@ -1,10 +1,13 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Define to 1 if you have the `clock_gettime' function. */
-#undef HAVE_CLOCK_GETTIME
+/* Define to 1 for clock_gettime */
+#undef ENABLE_CLOCK_GETTIME
 
 /* Define to 1 if you have the <cpuid.h> header file. */
 #undef HAVE_CPUID_H
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
@@ -112,6 +115,12 @@
 /* Define to 1 if you have the <time.h> header file. */
 #undef HAVE_TIME_H
 
+/* Define to 1 if the system has the type `uint32_t'. */
+#undef HAVE_UINT32_T
+
+/* Define to 1 if the system has the type `uint8_t'. */
+#undef HAVE_UINT8_T
+
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
@@ -121,11 +130,18 @@
 /* Define to 1 if you have the `__rdtsc' function. */
 #undef HAVE___RDTSC
 
-/* Define to 1 to supress daemon interface */
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+#undef LT_OBJDIR
+
+/* Define to 1 to suppress daemon interface */
 #undef NO_DAEMON
 
 /* Define to single collection thread */
 #undef NUMBER_CORES
+
+/* Define to 1 for online test features */
+#undef ONLINE_TESTS_ENABLE
 
 /* Name of package */
 #undef PACKAGE

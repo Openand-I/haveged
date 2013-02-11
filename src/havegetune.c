@@ -1,7 +1,7 @@
 /**
  ** Determine HAVEGE environment
  **
- ** Copyright 2009-2012 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
  ** Copyright 2011-2012 BenEleventh Consulting manolson@beneleventh.com
  **
  ** This program is free software: you can redistribute it and/or modify
@@ -18,14 +18,51 @@
  ** along with this program.  If not, see <http://www.gnu.org/licenses/>.
  **
  */
+/**
+ * This compile unit implements automatic tuning for the havege algorithm. Two
+ * general methods are used CPUID (intel specific) and VFS (Linux specific). The
+ * best result of the available methods is returned.
+ */
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <dirent.h>
 #include <string.h>
 #include <errno.h>
-#include "havege.h"
-#include "havegecollect.h"
+#include "havegetune.h"
+/**
+ * Text representations of build options
+ */
+static const char *buildReps[]= {
+   "C",     /* 1 */
+   "M",     /* 2 */
+   "T",     /* 4 */
+   0
+  };
+/**
+ * Text representations of TOPO_MAP sources
+ */
+static const char *topoReps[] = {
+   "D",   /* SRC_DEFAULT          0x00001 */
+   "P",   /* SRC_PARAM            0x00002 */
+   "A6",  /* SRC_CPUID_AMD6       0x00004 */
+   "A5",  /* SRC_CPUID_AMD5       0x00008 */
+   "L2",  /* SRC_CPUID_INTEL2     0x00010 */
+   "L4",  /* SRC_CPUID_INTEL4     0x00020 */
+   "V",   /* SRC_VFS_INDEX        0x00040 */
+   "",    /* not used             0x00080 */
+   "C",   /* SRC_CPUID_PRESENT    0x00100 */
+   "H",   /* SRC_CPUID_HT         0x00200 */
+   "A",   /* SRC_CPUID_AMD        0x00400 */
+   "A8",  /* SRC_CPUID_AMD8       0x00800 */
+   "B",   /* SRC_CPUID_LEAFB      0x01000 */
+   "4",   /* SRC_CPUID_LEAF4      0x02000 */
+   "VS",  /* SRC_VFS_STATUS       0x04000 */
+   "VO"   /* SRC_VFS_ONLINE       0x08000 */
+   "VI",  /* SRC_VFS_CPUINFO      0x10000 */
+   "VC",  /* SRC_VFS_CPUDIR       0x20000 */
+   0
+  };
 /**
  * Local debugging
  */
@@ -39,15 +76,21 @@ static void   cfg_dump(HOST_CFG *anchor);
 
 #define VFS 1
 /**
- * The configuration allocation
- */
-HOST_CFG  theConfig;
-/**
  * Local prototypes
  */
-static void   cfg_cacheAdd(HOST_CFG *anchor, U_CHAR src, U_CHAR cpu,
-                U_CHAR level, U_CHAR  type, U_INT kb);
-static void   cfg_cpuAdd(HOST_CFG *anchor, U_CHAR src, CPU_INST *INST);
+static void    cfg_bitClear(TOPO_MAP *m);
+static int     cfg_bitCount(TOPO_MAP *m);
+static void    cfg_bitDecode(char *dest, const char **reps, H_UINT value, H_UINT size);
+#if 0
+static void    cfg_bitDisplay(TOPO_MAP *m);
+#endif
+static int     cfg_bitIntersect(TOPO_MAP *m, TOPO_MAP *t);
+static void    cfg_bitMerge(TOPO_MAP *m,TOPO_MAP *t);
+static int     cfg_bitNext(TOPO_MAP *m, int n);
+static void    cfg_bitSet(TOPO_MAP *m, int n);
+static void    cfg_cacheAdd(HOST_CFG *anchor, H_UINT src, H_UINT cpu,
+                  H_UINT level, H_UINT  type, H_UINT kb);
+static void    cfg_cpuAdd(HOST_CFG *anchor, H_UINT src, CPU_INST *INST);
 
 
 #ifdef CPUID
@@ -60,20 +103,20 @@ typedef enum {
 } CPUID_REGNAMES;
 
 #define CPUID_CONFIG(a)   cpuid_config(a)
-#define CPUID_VENDOR(r)   *((U_INT *)s) = regs[r];s+= sizeof(U_INT) 
+#define CPUID_VENDOR(r)   *((H_UINT *)s) = regs[r];s+= sizeof(H_UINT) 
 /**
  * Local CPUID prototypes
  */
 #if defined (GCC_VERSION) && GCC_VERSION >= 40400
-static void   cpuid(int fn, int sfn, U_INT *regs) __attribute__((optimize(0)));
+static void   cpuid(int fn, int sfn, H_UINT *regs) __attribute__((optimize(0)));
 #else
-static void   cpuid(int fn, int sfn, U_INT *regs);
+static void   cpuid(int fn, int sfn, H_UINT *regs);
 #endif
 static void   cpuid_config(HOST_CFG *anchor);
 static void   cpuid_configAmd(HOST_CFG *anchor, CPU_INST *w);
 static void   cpuid_configIntel(HOST_CFG *anchor, CPU_INST *w);
-static void   cpuid_configIntel2(HOST_CFG *anchor, CPU_INST *w, U_INT *regs);
-static void   cpuid_configIntel4(HOST_CFG *anchor, CPU_INST *w, U_INT *regs);
+static void   cpuid_configIntel2(HOST_CFG *anchor, CPU_INST *w, H_UINT *regs);
+static void   cpuid_configIntel4(HOST_CFG *anchor, CPU_INST *w, H_UINT *regs);
 #else
 #define CPUID_CONFIG(a)
 #endif
@@ -86,7 +129,7 @@ static void   cpuid_configIntel4(HOST_CFG *anchor, CPU_INST *w, U_INT *regs);
  * Filter function used by configuration
  */
 typedef int (*pFilter)(HOST_CFG *pAnchor, char *input);
-typedef int (*pDirFilter)(HOST_CFG *pAnchor, char *input, U_INT *pArg);
+typedef int (*pDirFilter)(HOST_CFG *pAnchor, char *input, H_UINT *pArg);
 /**
  * Definitions
  */
@@ -95,11 +138,11 @@ typedef int (*pDirFilter)(HOST_CFG *pAnchor, char *input, U_INT *pArg);
  * Local filesystem prototypes
  */
 static void   vfs_config(HOST_CFG *anchor);
-static int    vfs_configCpuDir(HOST_CFG *anchor, char *input, U_INT *pArg);
+static int    vfs_configCpuDir(HOST_CFG *anchor, char *input, H_UINT *pArg);
 static int    vfs_configCpuInfo(HOST_CFG *anchor, char *input);
-static int    vfs_configDir(HOST_CFG *pAnchor, char *path, pDirFilter filter, U_INT *pArg);
+static int    vfs_configDir(HOST_CFG *pAnchor, char *path, pDirFilter filter, H_UINT *pArg);
 static int    vfs_configFile(HOST_CFG *anchor, char *path, pFilter filter);
-static int    vfs_configInfoCache(HOST_CFG *pAnchor, char *input, U_INT *pArg);
+static int    vfs_configInfoCache(HOST_CFG *pAnchor, char *input, H_UINT *pArg);
 static int    vfs_configOnline(HOST_CFG *anchor, char *input);
 static int    vfs_configInt(HOST_CFG *anchor, char *input);
 static int    vfs_configStatus(HOST_CFG *anchor, char *input);
@@ -115,13 +158,28 @@ static void   vfs_parseMask(TOPO_MAP *map, char *input);
 /**
  * Get tuning values for collector
  */
-HOST_CFG *havege_tune(     /* RETURN: the configuration  */
-  CMD_PARAMS *param)       /* IN: config parameters      */
+void havege_tune(          /* RETURN: none               */
+  HOST_CFG *anchor,        /* OUT: tuning info           */
+  H_PARAMS *param)         /* IN: config parameters      */
 {
-   HOST_CFG *anchor = &theConfig;
-   int i;
+   int i=0;
  
-   memset(anchor, 0, sizeof(HOST_CFG));
+   /**
+    * Capture build options
+    */
+#if defined(ENABLE_CLOCK_GETTIME)
+   i |= 1;
+#endif
+#if NUMBER_CORES>1
+   i |= 2;
+#endif
+#ifdef ONLINE_TESTS_ENABLE
+   i |= 4;
+#endif
+   cfg_bitDecode(anchor->buildOpts, buildReps, i, SZ_BUILDREP);
+   /**
+    * Virtual file system setup
+    */
    anchor->procfs = param->procFs==NULL? "/proc" : param->procFs;
    anchor->sysfs  = param->sysFs==NULL? "/sys"   : param->sysFs;
    /**
@@ -141,10 +199,12 @@ HOST_CFG *havege_tune(     /* RETURN: the configuration  */
       cfg_cacheAdd(anchor, SRC_DEFAULT, -1, 1, 'D', GENERIC_DCACHE);
       }
    /**
-    * Make sure there is at least 1 cpu instance
+    * Make sure there is at least 1 cpu instance. cpus configuration is considered
+    * homogeneous so only the first will be reported/used.
     */
    if (0 == anchor->ctCpu)
       cfg_cpuAdd(anchor, 0, NULL);
+   cfg_bitDecode(anchor->cpuOpts, topoReps, anchor->cpus[0].cpuMap.source, SZ_CPUREP);
  #ifdef TUNE_DUMP
    cfg_dump(anchor);
  #endif
@@ -153,33 +213,35 @@ HOST_CFG *havege_tune(     /* RETURN: the configuration  */
       if (anchor->caches[i].level==1) {
             switch(anchor->caches[i].type) {
               case 'I':   case 'T':
-                  if (i < anchor->i_tune)
+                  if (i < (int)anchor->i_tune)
                      anchor->i_tune = i;
                   break;
               case 'D':
-                  if (i < anchor->d_tune)
+                  if (i < (int)anchor->d_tune)
                      anchor->d_tune = i;
                   break;
               }
          }
       }
+   cfg_bitDecode(anchor->icacheOpts, topoReps,
+      anchor->caches[anchor->i_tune].cpuMap.source, SZ_CACHEREP);
+   cfg_bitDecode(anchor->dcacheOpts, topoReps,
+      anchor->caches[anchor->d_tune].cpuMap.source, SZ_CACHEREP);
    TUNE_DEBUG("havege_tune %d/%d\n", anchor->i_tune, anchor->d_tune);
-   return anchor;
 }
-
 /**
  * Return number of bits set in map
  */
-void cfg_bitClear(         /* RETURN : None  */
-  TOPO_MAP *m)             /* IN: bitmap     */
+static void cfg_bitClear(     /* RETURN : None  */
+  TOPO_MAP *m)                /* IN: bitmap     */
 {
-   memset(&m->bits[0], 0, MAX_BIT_IDX * sizeof(U_INT));
+   memset(&m->bits[0], 0, MAX_BIT_IDX * sizeof(H_UINT));
 }
 /**
  * Return number of bits set in map
  */
-int cfg_bitCount(          /* RETURN : None  */
-  TOPO_MAP *m)             /* IN: bitmap     */
+static int cfg_bitCount(      /* RETURN : None  */
+  TOPO_MAP *m)                /* IN: bitmap     */
 {
    int n, ct=0;
    
@@ -187,24 +249,51 @@ int cfg_bitCount(          /* RETURN : None  */
    return ct;
 }
 /**
+ * decode bit representation
+ */
+static void cfg_bitDecode(    /* RETURN: None         */
+   char *dest,                /* OUT: target          */
+   const char **reps,         /* IN: codes            */
+   H_UINT value,              /* IN: value to decode  */
+   H_UINT size)               /* IN: max range        */
+{
+   H_UINT      i=0;
+   const char  *s;
+   
+   size -= 1;
+   while(value!= 0  && *reps != 0) {
+      s = *reps++;
+      if ((value & 1) != 0) {
+         if (i>0 && i < size)
+            dest[i++] = ' ';
+         while(*s != 0 && i < size)
+            dest[i++] = *s++;
+         }
+      value >>= 1;
+      }
+   dest[i] = 0;
+}
+#if 0
+/**
  * Display topo bit map - cpuset(7) convention is big-endian
  */
-void cfg_bitDisplay(       /* RETURN : None  */
-   TOPO_MAP *m)            /* IN: bitmap     */
+static void cfg_bitDisplay(   /* RETURN : None  */
+   TOPO_MAP *m)               /* IN: bitmap     */
 {
    int n;
  
-   for(n=m->msw;n>=0 && n < MAX_BIT_IDX;n--)
+   for(n=m->msw;n>=0 && n < (int)MAX_BIT_IDX;n--)
       printf(" %08x", m->bits[n]);
 }
+#endif
 /**
  * Test if maps intersect
  */
-int cfg_bitIntersect(      /* RETURN: None   */
-  TOPO_MAP *m,             /* OUT: bitmap    */
-  TOPO_MAP *t)             /* IN: bit to set */
+static int cfg_bitIntersect(  /* RETURN: None   */
+  TOPO_MAP *m,                /* OUT: bitmap    */
+  TOPO_MAP *t)                /* IN: bit to set */
 {
-   int i;
+   H_UINT i;
  
    for (i=0;i < MAX_BIT_IDX;i++)
       if (0!=(m->bits[i] & t->bits[i]))
@@ -212,15 +301,15 @@ int cfg_bitIntersect(      /* RETURN: None   */
    return 0;
 }
 /**
- * Test if maps intersect
+ * Merge two maps
  */
-void cfg_bitMerge(         /* RETURN: None      */
+static void cfg_bitMerge(  /* RETURN: None      */
   TOPO_MAP *m,             /* OUT: bitmap       */
   TOPO_MAP *t)             /* IN: bits to set   */
 {
    int i;
    
-   for (i=0;i<MAX_BIT_IDX;i++) {
+   for (i=0;i<(int)MAX_BIT_IDX;i++) {
       m->bits[i] |= t->bits[i];
       if (0 != m->bits[i] && i > m->msw)
          m->msw = i;
@@ -229,17 +318,17 @@ void cfg_bitMerge(         /* RETURN: None      */
 /**
  * Find next bit in topo bit map
  */
-int cfg_bitNext (          /* RETURN: index of next bit or -1  */
+static int cfg_bitNext (   /* RETURN: index of next bit or -1  */
   TOPO_MAP *m,             /* IN: bitmap                       */
   int n)                   /* IN: prev bit  use -1 for first   */
 {
    int bit, word;
  
-   bit  = (n+1) % 32;
-   for(word = (n+1) / 32;word <= m->msw && word < MAX_BIT_IDX;word++) {
-      for(;bit<32; bit++)
+   bit  = (n+1) % BITS_PER_H_UINT;
+   for(word = (n+1) / BITS_PER_H_UINT;word <= m->msw && word < (int)MAX_BIT_IDX;word++) {
+      for(;bit<(int)BITS_PER_H_UINT; bit++)
          if (m->bits[word] & 1<< bit)
-            return word * 32 + bit;
+            return word * BITS_PER_H_UINT + bit;
       bit = 0;
       }
    return -1;
@@ -247,17 +336,17 @@ int cfg_bitNext (          /* RETURN: index of next bit or -1  */
 /**
  * Set a bit in the topo bit map
  */
-void cfg_bitSet(           /* RETURN: None   */
+static void cfg_bitSet(    /* RETURN: None   */
   TOPO_MAP *m,             /* OUT: bitmap    */
   int n)                   /* IN: bit to set */
 {
    int word;
  
-   word = n / 32;
-   if (word < MAX_BIT_IDX) {
+   word = n / BITS_PER_H_UINT;
+   if (word < (int)MAX_BIT_IDX) {
       if (word > m->msw)
          m->msw = word;
-      m->bits[word] |= 1 << (n % 32);
+      m->bits[word] |= 1 << (n % BITS_PER_H_UINT);
       }
 }
 /**
@@ -265,11 +354,11 @@ void cfg_bitSet(           /* RETURN: None   */
  */
 static void cfg_cacheAdd(  /* RETURN: None            */
   HOST_CFG *anchor,        /* IN-OUT: configuration   */
-  U_CHAR src,              /* IN: source              */
-  U_CHAR cpu,              /* IN: use -1 for all      */
-  U_CHAR level,            /* IN: cache level         */
-  U_CHAR  type,            /* IN: cache type          */
-  U_INT kb)                /* IN: cache size in kb    */
+  H_UINT src,              /* IN: source              */
+  H_UINT cpu,              /* IN: use -1 for all      */
+  H_UINT level,            /* IN: cache level         */
+  H_UINT  type,            /* IN: cache type          */
+  H_UINT kb)               /* IN: cache size in kb    */
 {
    int i;
  
@@ -281,7 +370,7 @@ static void cfg_cacheAdd(  /* RETURN: None            */
           anchor->caches[i].size  == kb)
             break;
    if (i >= MAX_CACHES) return;
-   if (-1 == cpu)
+   if (-1 == (int)cpu)
       cfg_bitMerge(&anchor->caches[i].cpuMap, &anchor->pCacheInfo);
    else  cfg_bitSet(&anchor->caches[i].cpuMap, cpu);
    anchor->caches[i].cpuMap.source |= src;
@@ -296,7 +385,7 @@ static void cfg_cacheAdd(  /* RETURN: None            */
  */
 static void cfg_cpuAdd(    /* RETURN: None            */
   HOST_CFG *anchor,        /* IN-OUT: configuration   */
-  U_CHAR src,              /* IN: source              */
+  H_UINT src,              /* IN: source              */
   CPU_INST *inst)          /* IN: instance            */
 {
    int i=0;
@@ -352,7 +441,7 @@ static void cfg_dump(      /* RETURN: None      */
 static void cpuid(         /* RETURN: none               */
    int fn,                 /* IN: function code          */
    int sfn,                /* IN: subfunction            */
-   U_INT *regs)            /* IN-OUT: Workspace          */
+   H_UINT *regs)           /* IN-OUT: Workspace          */
 {
    regs[2] = sfn;
    CPUID(fn, regs);
@@ -364,7 +453,7 @@ static void cpuid_config(  /* RETURN: none            */
    HOST_CFG *anchor)       /* IN-OUT: result          */
 {
    CPU_INST    wsp;
-   U_INT       regs[4];
+   H_UINT      regs[4];
    char        *s;
  
    if (HASCPUID(regs)) {
@@ -398,7 +487,7 @@ static void cpuid_configAmd(
    HOST_CFG *anchor,       /* IN-OUT: result             */
    CPU_INST *w)            /* IN-OUT: Workspace          */
 {
-   U_INT regs[4];
+   H_UINT regs[4];
    int  i, n;
 
    switch((w->maxFnx&15)) {
@@ -428,7 +517,7 @@ static void cpuid_configIntel(
    HOST_CFG *anchor,       /* IN-OUT: result             */
    CPU_INST *w)            /* IN-OUT: Workspace          */
 {
-   U_INT  regs[4];
+   H_UINT  regs[4];
  
    if (w->maxFn >=0x0b) {
       regs[ECX] = 0;
@@ -436,10 +525,12 @@ static void cpuid_configIntel(
       if (regs[EBX]!=0)
          w->flags |= SRC_CPUID_LEAFB;
      }
+#if 0
    if (w->flags & SRC_CPUID_HT)
       ;
    else
       ;
+#endif
    if (w->maxFn >=4)
       cpuid_configIntel4(anchor, w, regs);
    if (w->maxFn >= 2)
@@ -450,12 +541,12 @@ static void cpuid_configIntel(
  * level 1 cache. Still needed because trace cache is not reported elsewhere.
  */
 static void cpuid_configIntel2(
-  HOST_CFG *anchor,       /* IN-OUT: result             */
-  CPU_INST *w,              /* IN-OUT: Workspace          */
-  U_INT *regs)              /* IN-OUT: registers          */
+  HOST_CFG *anchor,        /* IN-OUT: result             */
+  CPU_INST *w,             /* IN-OUT: Workspace          */
+  H_UINT *regs)            /* IN-OUT: registers          */
 {
    /* L1 and Trace as per Intel application note 485, January 2011 */
-   static const U_CHAR defs[] = {
+   static const H_UINT defs[] = {
      0x06, 'I',  8 , /* 4-way set assoc, 32 byte line size                 */
      0x08, 'I', 16 , /* 4-way set assoc, 32 byte line size                 */
      0x09, 'I', 32 , /* 4-way set assoc, 64 byte line size +               */
@@ -477,7 +568,7 @@ static void cpuid_configIntel2(
      0x73, 'T', 64 , /* 8-way set assoc, trace cache                       */
      0x00, 0,  0     /* sentinel                                           */
      };
-   U_INT   i, j, n, m;
+   H_UINT   i, j, n, m;
  
    cpuid(0x02,0,regs);
    n = regs[EAX]&0xff;
@@ -506,15 +597,15 @@ static void cpuid_configIntel2(
 static void cpuid_configIntel4(
    HOST_CFG *anchor,       /* IN-OUT: result             */
    CPU_INST *w,            /* IN-OUT: Workspace          */
-   U_INT *regs)            /* IN-OUT: registers          */
+   H_UINT *regs)           /* IN-OUT: registers          */
 {
-   U_CHAR  level, type;
-   U_INT   i, j, lineSz, nParts, nWays, sz;
+   H_UINT  level, type;
+   H_UINT  i, j, lineSz, nParts, nWays, sz;
  
    for(i=0;i<MAX_CACHES;i++) {
       cpuid(0x04,i,regs);
       if (0==i) {
-         int n = 1 + (regs[EAX]>>26);
+         H_UINT n = 1 + (regs[EAX]>>26);
          for(j=0;j<n;j++)
             cfg_bitSet(&w->cpuMap, j);
          cfg_cpuAdd(anchor, SRC_CPUID_INTEL4, w);
@@ -528,7 +619,7 @@ static void cpuid_configIntel4(
          }
       if (0==type) break;
       regs[EAX] >>= 5;
-      level = (U_CHAR)(regs[EAX] & 7);
+      level = (H_UINT)(regs[EAX] & 7);
       lineSz = 1 + (regs[EBX] & 0xfff);
       regs[EBX] >>= 12;
       nParts  = 1 + (regs[EBX] & 0x3ff);
@@ -550,7 +641,7 @@ static void vfs_config(
 {
    char      path[FILENAME_MAX];
    CPU_INST  inst;
-   U_INT     args[2];
+   H_UINT    args[2];
    int       n;
  
    args[0] = args[1] = 0;
@@ -584,15 +675,17 @@ static void vfs_config(
 static int vfs_configCpuDir(
   HOST_CFG *anchor,        /* IN-OUT: result          */
   char *input,             /* filename                */
-  U_INT *pArg)             /* parameter               */
+  H_UINT *pArg)            /* parameter               */
 {
-   char  term[32];
-   int   cpu;
    
+   (void)pArg;
    if (strlen(input)> 3) {
+      char  term[32];
+      int   cpu;
+
       cpu = atoi(input+3);
       (void)snprintf(term, 32, "cpu%d", cpu);
-       if (!strcmp(term, input))
+      if (!strcmp(term, input))
          cfg_bitSet(&anchor->pCacheInfo, cpu);
       }
    return 0;
@@ -604,12 +697,12 @@ static int vfs_configCpuInfo(
   HOST_CFG *anchor,        /* IN-OUT: result          */
   char *input)             /* input text              */
 {
-   char    key[32], value[32], *s;
- 
-   s = strchr(input, ':');
+   char *s = strchr(input, ':');
+
    if (NULL != s) {
+      char    key[32], value[32];
       *s++ = '\0';
-      if (1==sscanf(input, "%32s", key) && 1==sscanf(s, "%32s", value)) {
+      if (1==sscanf(input, "%31s", key) && 1==sscanf(s, "%31s", value)) {
          if (!strcmp("processor",key))
             cfg_bitSet(&anchor->pCpuInfo, atoi(value));
          }
@@ -623,13 +716,14 @@ static int vfs_configDir(
   HOST_CFG *pAnchor,       /* IN-OUT: result          */
   char *path,              /* IN: directory path      */
   pDirFilter filter,       /* IN: entry filter        */
-  U_INT *pArg)             /* IN: filter arg          */
+  H_UINT *pArg)            /* IN: filter arg          */
 {
    DIR              *d;
-   struct dirent    *ent;
    int              rv=-1;
  
    if (NULL != (d = opendir(path))) {
+      struct dirent    *ent;
+
       while (NULL!=(ent = readdir(d))) {
          if (0!=(rv = (*filter)(pAnchor, ent->d_name, pArg)))
             break;
@@ -646,11 +740,12 @@ static int vfs_configFile(
   char *path,              /* IN: file path           */
   pFilter filter)          /* IN: input filter        */
 {
-   char buf[VFS_LINESIZE];
    FILE *f;
    int rv=-1;
    
    if (NULL != (f = fopen(path, "rb"))) {
+      char buf[VFS_LINESIZE];
+
       while(fgets(buf, VFS_LINESIZE, f))
          if (0!=(rv = (*filter)(pAnchor, buf)))
             break;
@@ -664,15 +759,17 @@ static int vfs_configFile(
 static int vfs_configInfoCache(
   HOST_CFG *pAnchor,       /* IN-OUT: result          */
   char *input,             /* IN: path name           */
-  U_INT *pArgs)
+  H_UINT *pArgs)
 {
-   char    path[FILENAME_MAX];
-   int     idx , plen, ctype, level, size;
- 
    if (strlen(input)> 5) {
-     idx = atoi(input+5);
-     (void)snprintf(path, 32, "index%d", idx);
+      char    path[FILENAME_MAX];
+      int     idx;
+
+      idx = atoi(input+5);
+      (void)snprintf(path, 32, "index%d", idx);
       if (!strcmp(path, input)) {
+         int     plen, ctype, level, size;
+
          plen = snprintf(path, FILENAME_MAX, "%s/devices/system/cpu/cpu%d/cache/index%d/level",
             pAnchor->sysfs, pArgs[1], idx) - 5;
          level = vfs_configFile(pAnchor, path, vfs_configInt);
@@ -702,6 +799,7 @@ static int vfs_configInt(
   HOST_CFG *anchor,        /* IN-OUT:  result   */
   char *input)             /* IN: input text    */
 {
+   (void)anchor;
    return atoi(input);
 }
 /**
@@ -711,12 +809,13 @@ static int vfs_configStatus(
   HOST_CFG *anchor,        /* IN-OUT:  result   */
   char *input)             /* IN: input text    */
 {
-   char key[32], value[VFS_LINESIZE-32], *s;
- 
-   s = strchr(input, ':');
+   char *s = strchr(input, ':');
+
    if (NULL != s) {
+      char key[32], value[VFS_LINESIZE-32];
+
       *s++ = '\0';
-      if (1==sscanf(input, "%s", key) && 1==sscanf(s, "%s", value)) {
+      if (1==sscanf(input, "%31s", key) && 1==sscanf(s, "%223s", value)) {
          if (!strcmp("Cpus_allowed", key))
             vfs_parseMask(&anchor->pAllowed, value);
          else if (!strcmp("Mems_allowed", key))
@@ -732,6 +831,7 @@ int vfs_configType(
   HOST_CFG *anchor,        /* IN-OUT:  result   */
   char *input)             /* IN: input text    */
 {
+  (void) anchor;
    return input[0];
 }
 /**

@@ -9,3 +9,4 @@ set ytic 1
 set grid x y z
 set title "Ticks Frequency"
 splot("run.bins")
+
