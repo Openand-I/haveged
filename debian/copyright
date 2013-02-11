@@ -42,6 +42,9 @@ License: GPL-3+
 Files: nist/dfft.c
 Copyright: Public Domain
 License: public-domain
+ As the original fortran libraries are public domain, the C Fourier
+ routines in this file are hereby released to the public domain as
+ well.
 
 Files: nist/mconf.h
 Copyright: 1984, 1987, 1989, 1995 Stephen L. Moshier
