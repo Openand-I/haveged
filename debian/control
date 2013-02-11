@@ -22,5 +22,5 @@ Description: Linux entropy source using the HAVEGE algorithm
  whenever the supply of random bits in dev/random falls below the low
  water mark of the device.
  .
- More information about HAVAGE is available at
+ More information about HAVEGE is available at
  http://www.irisa.fr/caps/projects/hipsor/
