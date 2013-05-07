@@ -74,7 +74,6 @@ static void   cfg_dump(HOST_CFG *anchor);
 #define TUNE_DEBUG(...)
 #endif
 
-#define VFS 1
 /**
  * Local prototypes
  */
@@ -91,9 +90,14 @@ static void    cfg_bitSet(TOPO_MAP *m, int n);
 static void    cfg_cacheAdd(HOST_CFG *anchor, H_UINT src, H_UINT cpu,
                   H_UINT level, H_UINT  type, H_UINT kb);
 static void    cfg_cpuAdd(HOST_CFG *anchor, H_UINT src, CPU_INST *INST);
+/**
+ * If cpuid not present, no need to generate the code
+ */
+#ifndef CPUID
+#undef TUNING_CPUID_ENABLE
+#endif
 
-
-#ifdef CPUID
+#ifdef TUNING_CPUID_ENABLE
 /************************* CPUID support ***************************************/
 /**
  * Register names
@@ -122,7 +126,7 @@ static void   cpuid_configIntel4(HOST_CFG *anchor, CPU_INST *w, H_UINT *regs);
 #endif
 /************************* CPUID support ***************************************/
 /*************************  VFS support  ***************************************/
-#ifdef VFS
+#ifdef TUNING_VFS_ENABLE
 
 #define  VFS_LINESIZE   256
 /**
@@ -430,11 +434,8 @@ static void cfg_dump(      /* RETURN: None      */
 }
 #endif
 
+#ifdef TUNING_CPUID_ENABLE
 /************************* CPUID support ***************************************/
-/**
- * CPUID support
- */
-#ifdef CPUID
 /**
  * Wrapper around the cpuid macro to assist in debugging
  */
@@ -545,7 +546,7 @@ static void cpuid_configIntel2(
   CPU_INST *w,             /* IN-OUT: Workspace          */
   H_UINT *regs)            /* IN-OUT: registers          */
 {
-   /* L1 and Trace as per Intel application note 485, January 2011 */
+   /* L1 and Trace as per Intel application note 485, May 2012 */
    static const H_UINT defs[] = {
      0x06, 'I',  8 , /* 4-way set assoc, 32 byte line size                 */
      0x08, 'I', 16 , /* 4-way set assoc, 32 byte line size                 */
@@ -632,7 +633,7 @@ static void cpuid_configIntel4(
 #endif
 /************************* CPUID support ***************************************/
 /*************************  VFS support  ***************************************/
-#ifdef VFS
+#ifdef TUNING_VFS_ENABLE
 /**
  * Get configuration
  */

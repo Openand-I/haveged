@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
             verbose = FALSE;
         char *filename="";
 
-        while ((opt = getopt(argc, argv, "?c:e:f:m:p:s:tv")) != -1) {
+        while ((opt = getopt(argc, argv, "?c:e:f:m:p:s:t:v")) != -1) {
        switch (toISOlower(opt)) {
                  case 'c':
           params->chisqr = atof(optarg);
@@ -195,17 +195,18 @@ int main(int argc, char *argv[])
                     break;
 
                  case 't':
-                    filename = "entitle.gif";
+                    filename = optarg;
+/*                    filename = "entitle.gif"; */
           stest = TRUE;
           break;
 
-                 case 'v':
-                    verbose = TRUE;
-                    break;
+      case 'v':
+         verbose = TRUE;
+         break;
 
-                 default:
-                    help();
-                    return -1;
+      default:
+         help();
+         return -1;
        }
    }
         if (!strlen(filename)) {

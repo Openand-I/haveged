@@ -4,15 +4,20 @@
 # This file and all modifications and additions to the pristine
 # package are under the same license as the package itself.
 #
+%define have_systemd 0
+
 Name:           haveged
-Version:        1.7
-Release:        1
+Version:        1.7a
+Release:        0
 License:        GPLv3
 Group:          System Environment/Daemons
 Summary:        Feed entropy into random pool
 URL:            http://www.issihosts.com/haveged/
 Source0:        http://www.issihosts.com/haveged/haveged-%{version}.tar.gz
-BuildRoot:      %{_builddir}/%{name}-root
+BuildRoot:      %{_builddir}/%{name}-{%version}-build
+%if 0%{?have_systemd}
+BuildRequires:  systemd
+%endif
 
 %description
 The haveged daemon feeds the linux entropy pool with random
@@ -21,7 +26,6 @@ numbers generated from hidden processor state.
 %package devel
 Summary:    haveged development files
 Group:      Development/Libraries
-Provides:   haveged-devel
 
 %description devel
 Headers and shared object symbolic links for the haveged library
@@ -33,27 +37,37 @@ algorithm and supporting features.
 %setup -q
 
 %build
-./configure
+%configure \
+  --enable-daemon\
+  --enable-init=sysv.redhat
 make
 
 %check
 make check
 
 %install
-[ ${RPM_BUILD_ROOT} != "/" ] && rm -rf $RPM_BUILD_ROOT
-make DESTDIR=$RPM_BUILD_ROOT install
+%makeinstall
+%{__install} -D -m0755 init.d/haveged %{buildroot}%{_sysconfdir}/init.d/%{name}
+%if 0%{?have_systemd}
+%{__install} -D -m0644 init.d/havege.service  %{buildroot}%{_unitdir}/%{name}.service
+%endif
+%{__rm} -f %{buildroot}%{_libdir}/libhavege.*a
 
 %clean
-[ ${RPM_BUILD_ROOT} != "/" ] && rm -rf $RPM_BUILD_ROOT
+%{?buildroot:%__rm -rf "%{buildroot}"}
 
 %files
 %defattr(-, root, root, -)
+%doc COPYING
 %{_mandir}/man8/haveged.8*
 %{_sbindir}/haveged
+%{_sysconfdir}/init.d/haveged
+%if 0%{?have_systemd}
 %{_unitdir}/haveged.service
-%doc COPYING README ChangeLog AUTHORS
+%endif
 
 %files devel
+%doc COPYING
 %defattr(-, root, root, -)
 %{_mandir}/man3/libhavege.3*
 %dir %{_includedir}/%{name}

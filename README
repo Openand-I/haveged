@@ -127,31 +127,25 @@ is set to 'yes'.
 
 The following build options are available to "./configure":
 
-1.  --enable-capture (diagnostic)
-2.  --enable-clock_gettime (not normally needed)
-3.  --enable-daemon (default for Linux)
-4.  --enable-init (type)
-5.  --enable-inject (diagnostic)
-6.  --enable-nistest (recommended)
-7.  --enable-olt (recommended default)
-8.  --enable-threads (experimental)
+1.  --enable-clock_gettime (default 'no' for recognized hosts)
+2.  --enable-daemon (default 'yes' if Linux)
+3.  --enable-diagnostic (default 'no')
+4.  --enable-init (type, default 'no')
+5.  --enable-nistest (default 'no' but recommended)
+6.  --enable-olt (default 'yes')
+7.  --enable-threads (experimental)
+8.  --enable-tune (default 'yes')
 
 Detailed option information is available by typing "./configure --help". For
 options xxx that take "yes/no" arguments, --disable-xxx may be used as the
 inverse of --enable-xxx.
 
-If --enable-capture or --enable-inject are 'yes', or --enable-daemon is 'yes',
-haveged will build without the daemon interfaces (i.e. only file system access
-will be available). The install target will install the executable in the user
-bin directory and no init method will be configured. If --enable-capture and
---enable-inject are both 'no', --enable-daemon defaults to 'yes' if the host
-operating system is Linux and 'no' otherwise.
-
 If --enable-clock_gettime() is 'yes', the clock_gettime(CLOCK_MONOTONIC) system
 call will be used as a timer source. This option defaults to 'yes' for generic
 host builds and 'no' otherwise. This option may proved useful if access to time
 hardware is privileged. Due to variability of clock_gettime() implementations,
-the adequacy of the clock_gettime() resolution cannot be known until run time. 
+the adequacy of the clock_gettime() resolution cannot be known until run time.
+It is strongly advised to use run-time testing if this option is used.
 
 If --enable-daemon is 'yes', ioctl access required to the random device and
 read-write access to the /proc virtual file system is required. The daemon may
@@ -160,14 +154,24 @@ argument. The daemon interface targets the 2.6 and later kernel and may not work
 on 2.4 kernels due to difference in the random interface between those two
 kernel versions. The change in the proc file system from pool size expressed in
 bytes to pool size expressed in bits has been taken into account, other changes
-may be required.
+may be required. This option is 'no' when diagnostic modes are enabled. If
+the option is no the executable is installed in the user bin directory instead
+of the sbin directory.
+
+If --enable-diagnostic is 'yes', the capture and inject diagnostic interfaces
+are enabled. The capture or inject diagnostic may be enabled singly by setting
+the option to 'capture' or 'inject'. A setting for any value other than 'no'
+for this option forces --enable-daemon=no.
 
 The --enable-init option is active only when --enable-daemon is 'yes'. This
 value can specify a template to be used in the installation of an init method
-by the build's install target. The default value, 'none', disables the feature.
+by the build's install target. The default value, 'no', disables the feature.
 Other values can be used to install a traditional systemv init script or
 systemd unit definition. In the latter case, pkg-config is required by the
 install target. See INSTALLATION for details.
+
+The --enable-nistest option enables more thorough testing for the check target.
+The build system provides to test mechanisms:
 
 The --enable-olt option is provided to suppress the entire online test facility.
 This option is provided for systems with a very limited resource budget and the
@@ -183,8 +187,17 @@ collection threads in a single haveged instance. The goal is to create a
 multi-core haveged that would spread collection overhead more evenly over the
 available cpu resources.
 
-The --enable-nistest option enables more thorough testing for the check target.
-The build system provides to test mechanisms:
+The --enable-tune option allows the on-line tuning facility to be suppressed.
+This is intended for systems with special needs and or a limited resource budget.
+Setting the option to 'yes' enables both the cpuid and virtual file system methods,
+a value of 'no' suppresses both methods. Individual tuning methods can be selected
+by setting the option to either 'cpuid' or 'vfs'. Note that the 'cpuid' method
+is always conditional on host type and will not be present if the hardware
+architecture does not support the instruction.
+
+CHECKING haveged
+
+The build check target provides two test procedures for the build.
 
 1. A "quick" check based upon and adaptation of the public domain ENT program.
    The "entest" program uses the ENT sources to subject a sample to the following:
@@ -208,15 +221,10 @@ The build system provides to test mechanisms:
 The "quick" test is always part of the check target. The NIST suite is run only
 when --enable-nistest is 'yes'.
 
-Both scripts function the same way, haveged is run to collect a sample file in
+Both checks function the same way, haveged is run to collect a sample file in
 the test directory which is then analyzed by the test program. A pass-fail return
 is given in both cases, additional information is written to stdout. The input
 samples and the nist.out report are deleted by the clean make target.
-
-The tests can also executed from a shell prompt at any time after "make check" by
-executing ent/test.sh or nist/test.sh from the build directory. Command arguments
-to the script are passed on to the haveged invocation, this allows the sample
-size to be adjusted via "-r" or cache sizes to be specified via "-d" and "-i".
 
 Both test mechanisms are statistical and even a fully functional random number
 generator will experience occasional failures. It is not uncommon to see one or
@@ -329,7 +337,7 @@ is provided for the libtool build It the daemon interface is enabled, the
 executable is installed in automake's sbin_PROGRAMS directory.
 
 If the daemon interface is enabled, the enable-init setting provides a simple
-template system is to setup the init method. If enable--init is set to none
+template system is to setup the init method. If enable-init is set to none
 no action is taken. Otherwise, the template must reside in the init.d build
 directory and is selected by the setting. Template names "service.*" indicate
 that a systemd style init, while template names "sysv.*" are used for sysv
@@ -352,7 +360,7 @@ can be found in the contrib directory.
 EXTRAS
 
 The contrib directory contains bits and pieces that are not integrated into the
-distribution. Currently this directory contains build related uitilies in
+distribution. Currently this directory contains build related utilities in
 the build directory and an unorganized collection of some of the tools used
 to analyze haveged in the diags directory.
 

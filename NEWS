@@ -1,3 +1,10 @@
+v1.7a (Feb 13, 2013)
+
+   Fix broken parallel builds - fix LDADD problem in build, VPATH problems in check targets.
+   Move to check-local for check target to work with automake v1.13 but retain backward
+   compatability. Modify build to make tuning component optional in build. Improve sample
+   spec file and docs.   
+
 v1.7  (Jan 15, 2013)
 
    The build has been restructured to provide a devel package. This introduces a new libtool
@@ -5,7 +12,7 @@ v1.7  (Jan 15, 2013)
    as well as providing a bootstrap to recover from automake mismatches. The script will also
    build and run devel sample code for those interested in using the devel package.
    
-   Other build related changes include updating AC_PREQ to a more resonable, 2.59 and changing
+   Other build related changes include updating AC_PREQ to a more reasonable, 2.59 and changing
    the build option for init scripts to default to --enable-init=none. The format of the
    haveged diagnostic display has changed to provided more information and the output is now
    displayed after output is generated in the non-daemon case.

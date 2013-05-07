@@ -1,9 +1,15 @@
+v1.7a (Feb 13, 2013)
+  * Fix parallel build (LDADD fix + VPATH fixes to test programs)
+  * Fix check target for automake v1.13 and previous (use check-local)
+  * Add option to suppress tuning code build
+  * Improve sample spec file for library
+
 v1.7  (Jan 15, 2013)
- * Add havege_status_dump() as basis for haveged diagnositics
+ * Add havege_status_dump() as basis for haveged diagnostics
  * Provide sample spec to build haveged and haveged-devel
  * Add contrib/build to provide build support
  * Modify build to use libtool
- * Retname base types to alias stdint.h types to allow 'fixes' if necessary
+ * Rename base types to alias stdint.h types to allow 'fixes' if necessary
  * Rename all public functions to follow havege_* naming convention
  * Sanitize havege.h to be include file for devel package
  * Add destroy() to havege for library use.
