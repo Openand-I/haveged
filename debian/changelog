@@ -1,3 +1,11 @@
+haveged (1.7a-1) unstable; urgency=low
+
+  * New upstream version.
+  * Include improved debian/watch from Bart Martens.
+  * Bump Standards-Version to 3.9.4, no changes required.
+
+ -- Jérémy Bobbio <lunar@debian.org>  Tue, 07 May 2013 08:50:31 +0000
+
 haveged (1.7-1) experimental; urgency=low
 
   * New upstream version:                              (Closes: #689673)
