@@ -24,15 +24,18 @@ char *filename = "";
 FILE *fp = stdin;
 long result=0;
 
-if (argc!=2) {
-  printf("Usage sts <file>\n");
+ if (argc<2 || argc>3) {
+  printf("Usage sts <file> [<template directory>]\n");
   return 1;
   }
-
-/* Template file must be in current working directory */
-
-(void)getcwd(basename,FILENAME_MAX);
-strcat(basename, "/");
+ /**
+  * get optional directory name
+  */
+ basename[0] = 0;
+ if (argc>2) {
+  strcat(basename, argv[2]);
+  strcat(basename, "/");
+ }
 
 filename = argv[1];
 if ((fp = fopen(filename, "rb")) == NULL) {

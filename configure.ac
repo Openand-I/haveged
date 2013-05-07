@@ -3,7 +3,7 @@
 ## Minimum Autoconf version
 AC_PREREQ([2.59])
 
-AC_INIT([haveged],[1.7])
+AC_INIT([haveged],[1.7a])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
@@ -21,35 +21,37 @@ HAVEGE_LT_VERSION="1:0:0"
 AC_SUBST(HAVEGE_LT_VERSION)
 ##libtool_end##
 
-## Make capture diagnostic configurable
-AC_ARG_ENABLE(capture, AS_HELP_STRING([--enable-capture=[no/yes]],[Enable capture diagnostic. [default=no]]),, enable_capture="no")
-if test "x$enable_capture" = "xyes"; then
-   AC_DEFINE(RAW_OUT_ENABLE, 1, [Define to 1 for capture diagnostic])
-fi
+## Make clock_gettime configurable
+AC_ARG_ENABLE(clock_gettime, AS_HELP_STRING([--enable-clock_gettime=[no/yes]],[Enable clock_gettime. [default=no]]),, enable_clock_gettime="no")
 
 ## Make build w/o daemon interface configurable
 AC_ARG_ENABLE(daemon, AS_HELP_STRING([--enable-daemon=[yes/no]],[Enable daemon [default=yes if linux]]),, enable_daemon="x" )
 
-## Make inject diagnostic configurable
-AC_ARG_ENABLE(inject, AS_HELP_STRING([--enable-inject=[no/yes]],[Enable inject diagnostic. [default=no]]),, enable_inject="no")
-if test "x$enable_inject" = "xyes"; then
+## Make diagnostic modes configurable
+AC_ARG_ENABLE(diagnostic, AS_HELP_STRING([--enable-diagnostic=[no/capture/inject/yes]],[Enable diagnostic modes. [default=no]]),, enable_diagnostic="no")
+if test "x$enable_diagnostic" = "xyes"; then
+   AC_DEFINE(RAW_OUT_ENABLE, 1, [Define to 1 for capture diagnostic])
    AC_DEFINE(RAW_IN_ENABLE, 1, [Define to 1 for injection diagnostic])
+   enable_daemon="no";
+elif test "x$enable_diagnostic" == "xcapture"; then
+   AC_DEFINE(RAW_OUT_ENABLE, 1, [Define to 1 for capture diagnostic])
+   enable_daemon="no";
+elif test "x$enable_diagnostic" == "xinject"; then
+   AC_DEFINE(RAW_IN_ENABLE, 1, [Define to 1 for injection diagnostic])
+   enable_daemon="no";
 fi
+
+## Make init configurable
+AC_ARG_ENABLE(init, AS_HELP_STRING([--enable-init=[type]],[Enable service.* or sysv.* template [default=no]]),, enable_init="no" )
+
+## Make nist self-test configurable
+AC_ARG_ENABLE(nistest, AS_HELP_STRING([--enable-nistest=[no/yes]],[Run NIST test suite [default=no]]),, enable_nistest="no")
 
 ## Make self test features configurable
 AC_ARG_ENABLE(olt, AS_HELP_STRING([--enable-olt=[yes/no]],[Enable online tests [default=yes]]),, enable_olt="yes" )
 if test "x$enable_olt" = "xyes"; then
    AC_DEFINE(ONLINE_TESTS_ENABLE, 1, [Define to 1 for online test features])
 fi
-
-## Make init configurable
-AC_ARG_ENABLE(init, AS_HELP_STRING([--enable-init=[type]],[Enable systemd or sysv template [default=sysv.redhat]]),, enable_init="none" )
-if test "x$enable_init" = "x"; then
-   enable_init="none"
-fi
-
-## Make clock_gettime configurable
-AC_ARG_ENABLE(clock_gettime, AS_HELP_STRING([--enable-clock_gettime=[no/yes]],[Enable clock_gettime. [default=no]]),, enable_clock_gettime="no")
 
 ## Make multi-thread feature configurable
 AC_ARG_ENABLE(threads, AS_HELP_STRING([--enable-threads=[no/yes]],[Enable threads [default=no]]),, enable_threads="no")
@@ -60,14 +62,16 @@ else
    AC_DEFINE(NUMBER_CORES, 1, [Define to single collection thread])
 fi
 
-## Make nist self-test configurable
-AC_ARG_ENABLE(nistest, AS_HELP_STRING([--enable-nistest=[no/yes]],[Run NIST test suite [default=no]]),, enable_nistest="no")
-if test "x$enable_nistest" = "xyes"; then
-   HA_CHECK="ent/test.sh nist/test.sh"
-else
-   HA_CHECK="ent/test.sh"
+## Make tuning features configurable
+AC_ARG_ENABLE(tune, AS_HELP_STRING([--enable-tuning=[yes/cpuid/vfs/no]],[Enable tuning modes [default=yes]]),, enable_tune="yes" )
+if test "x$enable_tune" = "xyes"; then
+   AC_DEFINE(TUNING_CPUID_ENABLE, 1, [Define to 1 for host tuning features])
+   AC_DEFINE(TUNING_VFS_ENABLE, 1, [Define to 1 for host tuning features])
+elif test "x$enable_tune" == "xcpuid"; then
+   AC_DEFINE(TUNING_CPUID_ENABLE, 1, [Define to 1 for host tuning features])
+elif test "x$enable_tune" == "xvfs"; then
+   AC_DEFINE(TUNING_VFS_ENABLE, 1, [Define to 1 for host tuning features])
 fi
-AC_SUBST(HA_CHECK,$HA_CHECK)
 
 ## Checks for programs.
 AC_PROG_CC([gcc])
@@ -104,11 +108,8 @@ AC_CHECK_HEADERS(linux/random.h)
 AC_CANONICAL_HOST
 
 ## Determine if daemon interface to be included
-if test "x$enable_capture" == "xyes"; then
-   daemon_type="none"
-elif test "x$enable_inject" == "xyes"; then
-   daemon_type="none"
-elif test "x$enable_daemon" = "xyes"; then
+
+if test "x$enable_daemon" = "xyes"; then
    daemon_type="yes"
 elif test "x$enable_daemon" = "xno"; then
    daemon_type="none"
@@ -194,13 +195,15 @@ esac
 fi
 ## AC_DEFINE_UNQUOTED(DAEMON_TYPE,"$daemon_type",[daemon type])
 
-## Fixup install
+## Fixup install and test options
 
 AC_SUBST(HA_DISTRO,$enable_init):
 AM_CONDITIONAL(ENABLE_BIN, test "$daemon_type" = "none")
 AM_CONDITIONAL(ENABLE_SYSV, test "$init_type" = "sysv")
 AM_CONDITIONAL(ENABLE_SYSTEMD, test "$init_type" = "systemd")
 AM_CONDITIONAL(ENABLE_NOINIT, test "$init_type" = "none")
+AM_CONDITIONAL(ENABLE_ENT_TEST, test "yes" = "yes")
+AM_CONDITIONAL(ENABLE_NIST_TEST, test "$enable_nistest" = "yes")
 
 ## Set hardware dependent define for the build
 

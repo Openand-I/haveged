@@ -5,7 +5,7 @@
 # package are under the same license as the package itself.
 #
 Name:           haveged
-Version:        1.7
+Version:        1.7a
 Release:        1
 License:        GPLv3
 Group:          System Environment/Daemons
