@@ -1,21 +1,21 @@
-.TH haveged 8  "October 23, 2011" "version 1.3" "SYSTEM ADMINISTRATION COMMANDS"
+.TH haveged 8  "January 15, 2013" "version 1.7" "SYSTEM ADMINISTRATION COMMANDS"
 .SH NAME
 haveged \- Generate random numbers and feed linux random device.
 .SH SYNOPSIS
 .B haveged [options]
 .SH DESCRIPTION
-The HAVEGE (HArdware Volatile Entropy Gathering and Expansion) algorithum harvests
+The HAVEGE (HArdware Volatile Entropy Gathering and Expansion) algorithm harvests
 the indirect effects of hardware events on hidden processor state (caches,
 branch predictors, memory translation tables, etc) to generate a random sequence. 
 The effects of interrupt service on processor state are visible from
-userland as timing variations in program execution speed. Using a branch-rich
+user land as timing variations in program execution speed. Using a branch-rich
 calculation that fills the processor instruction and data cache, a high resolution
 timer source such as the processor time stamp counter can generate a random sequence
 even on an "idle" system.
 
 In Linux, the hardware events that are the ultimate source of any random number
-sequence are pooled by the /dev/random device for later distribution via the
-device interface. The standard mechanism of harvesting randomness for the pool
+sequence are pooled for distribution by the /dev/random and /dev/urandom device
+interface. The standard mechanism of harvesting randomness for the pool
 may not be sufficient to meet demand, especially on those systems with high needs
 or limited user interaction. Haveged provides a daemon  to fill /dev/random
 whenever the supply of random bits in /dev/random falls below the low water mark
@@ -25,37 +25,79 @@ Haveged also provides a direct file system interface to the collection mechanism
 that is also useful in other circumstances where access to the dev/random interface
 is either not available or inappropriate.
 
-In either case, haveged uses HAVEGE to maintain a 1M pool of random bytes consumed
-by the interface. The principle inputs to havaged are the sizes of the processor
-instruction and data caches used to setup the HAVEGE collector. The haveged default
-is a 4kb data cache and a 16kb instruction cache. On machines with a cpuid instruction,
-haveged will attempt to select appropriate values from
-internal tables.
+The size of the processor level 1 instruction and data caches are used to tune
+the HAVEGE algorithm for maximum sensitivity. The sizes of these caches may be input
+directly on the command line. For sizes not specified, haveged will attempt to determine
+the sizes dynamically from the Linux sysfs and/or cpuid instruction with a fallback
+to a compiled default (usually 16k) if better information is not available.
 
-Although CISC architectures appear insensitive to tuning parameters, there is
-no guarantee that manual tuning of the algorithm may not be required under some
-circumstances. The output of the HAVEGE random number generator should be verified
-on any installation before the haveged is put into production.
+Haveged includes a run time test facility based upon the test suite defined in
+the AIS-31 specification from the  The German Federal Office for Information Security
+(Bundesamt für Sicherheit in der Informationstechnik). The test suite consists
+of 9 statistical tests packaged into two test suites ("A" and "B"). The tests
+can be run at initialization (a.k.a. a "tot" test), or continuously to monitor
+all output. Failure of a suite will terminate execution unless explicitly waived
+in the onlinetest command line option.
+
+Procedure A contains 6 test procedures. The first test, 'test0', is run once. This
+is followed by 257 repetitions of the FIPS140-1 tests, 'test1' through 'test4', and
+an auto-correlation test, 'test5'. The fixed size of the Procedure A input makes
+it ideal for continuous use but test5 is several orders of magnitude slower than
+any other individual AIS test. As an alternative for those who cannot tolerate
+this load, procedure A variants A<n> are provided that execute all included tests
+but executes test5 only every 2^n repetitions.
+
+Procedure B contains 3 tests, 'test6', 'test7', 'test8'. Because first two tests
+check the distribution of disjoint bit sequences, the input size for the test
+is variable. The last test provides an entropy estimate of the input which
+makes this test well suited to the haveged daemon role.
+
+Each test procedure requires more than 1MB of data. In those cases where a continuous
+test procedure cannot be completed in the available buffer space (see --buffer), the
+complete buffer will be discarded on a single failed individual test and a refill
+initiated to resolve the outcome of the built in retry before additional data becomes
+available.
 
 .SH OPTIONS
 .TP
 -b nnn, --buffer=nnn
-Set collection buffer size to nnn KB. Default is 128.
+Set collection buffer size to nnn KW. Default is 128KW (or 512KB).
 .TP
 -d nnn, --data=nnn
-Set data cache size to nnn KB. Default is 16 or as determined by cpuid.
+Set data cache size to nnn KB. Default is 16 or as determined dynamically.
 .TP
 -f file, --file=file
 Set output file path for non-daemon use. Default is "sample",
 use '-' for stdout.
 .TP
+-F , --Foreground
+Run daemon in foreground. Do not fork and detach,
+use '-' for stdout.
+.TP
 -i nnn, --inst=nnn
-Set instruction cache size to nnn KB. Default is 16 or as determined by cpuid.
+Set instruction cache size to nnn KB. Default is 16 or as determined dynamically.
 .TP
 -n nnn, --number=nnn
-Set number of bytes written to the outputfile. The value may be specified using one
+Set number of bytes written to the output file. The value may be specified using one
 of the suffixes k, m, g, or t. The upper bound of this value is "16t" (2^44 Bytes = 16TB).
 A value of 0 indicates unbounded output and forces output to stdout.
+.TP
+-o <spec>, --onlinetest=<spec>
+Specify online tests to run. The <spec> consists of optional 't'ot and 'c'ontinuous
+groups, each group indicates the procedures to be run, using "a<n>" to indicate a
+AIS-31 procedure A variant, and "b" to indicate AIS procedure B. The specifications
+are order independent (procedure B always runs first) and case insensitive. A "w"
+can be appended to any test token to make the test advisory only. The default is
+"ta8bcb" if run as a daemon and "ta8b" otherwise.
+
+For example, the string "tbca8b" is suitable for an AIS NTG.1 device (use procedure B
+for the "tot" test, then cycle between procedure A8 and procedure B continuously for
+all further output). The default is "tb". Resources are allocated only for tests used,
+in minimal resource situations, "tc" can be used to disable all testing and avoid
+all test resource allocations.
+.TP
+-p file, --pidfile=file
+Set file path for the daemon pid file. Default is "/var/run/haveged.pid",
 .TP
 -r n, --run=n
 Set run level for daemon interface:
@@ -84,6 +126,7 @@ This summary of program options.
 .SH DIAGNOSTICS
 The following diagnostics may be issued to stderr upon termination:
 
+.RE
 Cannot fork into the background
 .RS
 Call to daemon(3) failed.
@@ -107,6 +150,11 @@ Unable to read /proc/sys/kernel/random/poolsize
 Couldn't initialize HAVEGE rng
 .RS
 Invalid data or instruction cache size.
+
+.RE
+Couldn't open PID file <s> for writing
+.RS
+Unable to write daemon PID
 
 .RE
 Couldn't open random device
@@ -134,9 +182,25 @@ RNDADDENTROPY failed!
 Call to ioctl(2) to add entropy failed
 
 .RE
+RNG failed
+.RS
+The random number generator failed self-test or encountered a fatal error.
+
+.RE
 Select error
 .RS
 Call to select(2) failed.
+
+.RE
+Stopping due to signal
+.RS
+Signal caught
+
+.RE
+Unable to setup online tests
+.RS
+Memory unavailable for online test resources.
+
 
 .SH EXAMPLES
 .TP
@@ -163,12 +227,34 @@ haveged -n 3705 -f - 2>/dev/null | uuencode -m - | head -n 66 | tail -n 65
 .TP
 Test the randomness of the generated data with dieharder test suite
 haveged -n 0 | dieharder -g 200 -a
+.TP
+Generate 16k of data, testing with procedure A and B with detailed test results. Note c test never completes
+haveged -n 16k -o tba8ca8 -v 33
+.TP
+Generate 16k of data as above with larger buffer. Note c test completion
+haveged -n 16k -o tba8ca8 -v 33 -b 256
+.TP
+Generate 16m of data as above, Note c test completions with default buffer size.
+haveged -n 16m -o tba8ca8 -v 33
 
 .SH SEE ALSO
 .TP
-cryptsetup(8), aespipe(1), pv(1), openssl(1), uuencode(1)
+libhavege(3), cryptsetup(8), aespipe(1), pv(1), openssl(1), uuencode(1)
+
+.SH References
+
+.I HArdware Volatile Entropy Gathering and Expansion: generating unpredictable random numbers at user level
+by A. Seznec, N. Sendrier, INRIA Research Report, RR-4592, October 2002
+
+.I A proposal for: Functionality classes for random number generators
+by W. Killmann and W. Schindler, version 2.0, Bundesamt fur Sicherheit in der
+Informationstechnik (BSI), September, 2011
+
+.I A Statistical Test Suite for the Validation of Random NUmber Generators and Pseudorandom Number Generators for Cryptographic Applications,
+special publication SP800-22, National Institute of Standards and Technology, revised April, 2010 
 
 .SH AUTHOR
-Gary Wuertz <gary@issiweb.com> and Jirka Hladky
-.SH SEE ALSO
+Gary Wuertz <gary@issiweb.com> and Jirka Hladky <hladky jiri AT gmail DOT com>
+
+.SH REFERENCES
 http://www.issihosts/haveged/

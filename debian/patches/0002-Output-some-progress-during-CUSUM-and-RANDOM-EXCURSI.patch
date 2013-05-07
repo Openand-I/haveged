@@ -9,7 +9,7 @@ inactivity. So let's output a little more progress messages as a workaround.
  1 files changed, 2 insertions(+), 0 deletions(-)
 
 diff --git a/nist/packtest.c b/nist/packtest.c
-index e479dd7..09124d5 100644
+index 9439607..879cd73 100644
 --- a/nist/packtest.c
 +++ b/nist/packtest.c
 @@ -557,6 +557,7 @@ PackTestL (int *ARRAY, int ArraySize, char *C)

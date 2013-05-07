@@ -697,6 +697,7 @@ NonOverlappingTemplateMatchings (int m, int n, int *ARRAY)
 #ifdef IO
       {
 	fprintf (fileout, "\tTemplate file %s not existing\n", directory);
+	fprintf (stderr, "\tTemplate file %s not existing\n", directory);
       }
 #endif
       exit (1);

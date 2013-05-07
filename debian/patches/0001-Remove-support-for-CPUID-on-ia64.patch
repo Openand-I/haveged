@@ -13,10 +13,10 @@ cache values on ia64.
  1 file changed, 4 deletions(-)
 
 diff --git a/src/havegecollect.h b/src/havegecollect.h
-index 1b92c2c..2c73c00 100644
+index 370af6b..7f4b34f 100644
 --- a/src/havegecollect.h
 +++ b/src/havegecollect.h
-@@ -91,11 +91,7 @@
+@@ -117,11 +117,7 @@ typedef struct h_collect {
  
  #ifdef HAVE_ISA_IA64
  #define ARCH "ia64"

@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2012 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
  ** Copyright 2011-2012 BenEleventh Consulting manolson@beneleventh.com
  **
  ** This program is free software: you can redistribute it and/or modify
@@ -23,6 +23,32 @@
  ** Definitions needed to build haveged
  */
 #include "havege.h"
+/**
+ * The collection context
+ */
+typedef struct h_collect {
+   void    *havege_app;                   /* Application block             */
+   H_UINT   havege_idx;                   /* Identifer                     */
+   H_UINT   havege_szCollect;             /* Size of collection buffer     */
+   H_UINT   havege_raw;                   /* RAW mode control flags        */
+   H_UINT   havege_szFill;                /* Fill size                     */
+   H_UINT   havege_nptr;                  /* Input pointer                 */
+   pRawIn   havege_rawInput;              /* Injection function            */
+   pRawIn   havege_testInput;             /* Injection function for test   */
+   H_UINT   havege_cdidx;                 /* normal mode control flags     */
+   H_UINT  *havege_pwalk;                 /* Instance variable             */
+   H_UINT   havege_andpt;                 /* Instance variable             */
+   H_UINT   havege_PT;                    /* Instance variable             */
+   H_UINT   havege_PT2;                   /* Instance variable             */
+   H_UINT   havege_pt2;                   /* Instance variable             */
+   H_UINT   havege_PTtest;                /* Instance variable             */
+   H_UINT   havege_tic;                   /* Instance variable             */
+   H_UINT  *havege_tics;                  /* loop timer noise buffer       */
+   H_UINT   havege_err;                   /* H_ERR enum for status         */
+   void    *havege_tests;                 /* opague test context           */
+   void    *havege_extra;                 /* other allocations             */
+   H_UINT   havege_bigarray[1];           /* collection buffer             */
+} volatile H_COLLECT;
 /**
  ** Compiler intrinsics are used to make the build more portable and stable
  ** with fall-backs provided where the intrisics cannot be used. 
@@ -86,7 +112,7 @@
  */
 #ifdef HAVE_ISA_GENERIC
 #define ARCH "generic"
-#define HARDCLOCK(x) x = havege_clock()
+#define ENABLE_CLOCKGETTIME 1
 #endif
 
 #ifdef HAVE_ISA_IA64
@@ -149,9 +175,9 @@
  */
 #define CPUID(level,p) return __cpuidx(p, level, p[2])
 #define HASCPUID(p) \
-  {
-  CPUID(0,a,b,c,d)
-  }  
+  { \
+  CPUID(0,a,b,c,d) \
+  }
 /**
  * Use the __ReturnAddress intrinsic to calculate the LOOP_PT
  */
@@ -159,7 +185,13 @@
 #define LOOP_PT(a) 0
 #endif
 /* ################################################################################# */
-
+/**
+ * Other useful definitions
+ */
+#define BITS_PER_H_UINT (8*sizeof(H_UINT))    /* Bit packing constant                     */
+#define DEFAULT_BUFSZ   1024*sizeof(H_UINT)   /* Default for ioSz                         */
+#define MININITRAND     32                    /* Number of initial fills to prime RNG     */
+#define NDSIZECOLLECT   (128*1024)            /* Collection size: 128K*H_UINT = .5M byte  */
 /**
  * Configuration defaults
  */
@@ -170,7 +202,14 @@
 #define GENERIC_ICACHE 16
 #endif
 #ifndef LOOP_CT
-#define LOOP_CT 40
+#define LOOP_CT 40                        /* Max interations per collection loop    */
 #endif
+/**
+ ** The public collection interface
+ */
+H_COLLECT   *havege_ndcreate(H_PTR hptr, H_UINT nCollector);
+void        havege_nddestroy(H_COLLECT *rdr);
+H_UINT      havege_ndread(H_COLLECT *rdr);
+void        havege_ndsetup(H_PTR hptr);
 
 #endif

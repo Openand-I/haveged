@@ -1,3 +1,19 @@
+haveged (1.7-1) experimental; urgency=low
+
+  * New upstream version:                              (Closes: #689673)
+    - Since haveged 1.5, entropy is tested at runtime. (Closes: #651980)
+  * Refresh Debian patches.
+  * Update debian/copyright.
+  * Add missing license paragraph in debian/copyright.
+  * Switch to debhelper compatibility level 9 for hardening and multi-arch.
+  * Switch to multiple binary packages as upstream has extracted most
+    features to a library. We now ship libhavege1, libhavege1-dbg and
+    libhavege-dev on top of haveged itself.
+  * Add upstream answers to concerns regarding HAVEGE in virtualized
+    environments in README.Debian.
+
+ -- Jérémy Bobbio <lunar@debian.org>  Mon, 11 Feb 2013 14:18:59 +0100
+
 haveged (1.4-4) unstable; urgency=low
 
   * Disable NIST test suite on mips and mipsel as it takes way

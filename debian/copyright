@@ -3,27 +3,38 @@ Upstream-Name: haveged
 Source: http://www.issihosts.com/haveged/
 
 Files: *
-Copyright: 2009-2012, Gary Wuertz <gary@issiweb.com>
+Copyright: 2009-2013 Gary Wuertz <gary@issiweb.com>
 License: GPL-3+
 
 Files: debian/*
-Copyright: 2009-2012, Steve Kostecke <steve@debian.org>
-           2011-2012, Jérémy Bobbio <lunar@debian.org>
+Copyright: 2009-2012 Steve Kostecke <steve@debian.org>
+           2011-2013 Jérémy Bobbio <lunar@debian.org>
 License: GPL-3+
 
 Files: src/havege.c src/havege.h
        src/havegecollect.c src/havegecollect.h
+       src/haveged.c
+       src/havegetest.h
        src/havegetune.c
-Copyright: 2009-2012, Gary Wuertz <gary@issiweb.com>
+Copyright: 2009-2013 Gary Wuertz <gary@issiweb.com>
            2011-2012 BenEleventh Consulting manolson@beneleventh.com
 License: GPL-3+
 
-Files: contrib/diags/data_prep.c
-Copyright: 2009-2011, Gary Wuertz <gary@issiweb.com>
-           2011 BenEleventh Consulting <manolson@beneleventh.com>
+Files: src/havegetest.c
+Copyright: 2013 Gary Wuertz <gary@issiweb.com>
+           2012 BenEleventh Consulting manolson@beneleventh.com
 License: GPL-3+
 
-Files: init.d/lsb.in init.d/redhat.in
+Files: src/cpuid-43.h
+Copyright: 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
+License: GPL-3+
+
+Files: contrib/diags/data_prep.c
+Copyright: 2009-2011 Gary Wuertz <gary@issiweb.com>
+                2011 BenEleventh Consulting <manolson@beneleventh.com>
+License: GPL-3+
+
+Files: init.d/sysv.lsb init.d/sysv.redhat
 Copyright: 2011-2012 Gary Wuertz <gary@issiweb.com>
            2011-2012 Jirka Hladky <hladky_dot_jiri_at_gmail_com>
 License: GPL-3+
@@ -31,9 +42,12 @@ License: GPL-3+
 Files: nist/dfft.c
 Copyright: Public Domain
 License: public-domain
+ As the original fortran libraries are public domain, the C Fourier
+ routines in this file are hereby released to the public domain as
+ well.
 
 Files: nist/mconf.h
-Copyright: 1984, 1987, 1989, 1995, Stephen L. Moshier
+Copyright: 1984, 1987, 1989, 1995 Stephen L. Moshier
 License: other
  Some software in this archive may be from the book _Methods and
  Programs for Mathematical Functions_ (Prentice-Hall or Simon & Schuster
@@ -43,7 +57,7 @@ License: other
  guarantee.
 
 Files: nist/packtest.c
-Copyright: 1999, National Institute Of Standards & Technology
+Copyright: 1999 National Institute Of Standards & Technology
 License: other
  Permission to use, copy, and modify this software without
  fee is hereby granted, provided that this entire notice is
