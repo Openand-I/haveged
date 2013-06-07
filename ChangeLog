@@ -1,8 +1,12 @@
+v1.7b (Jun 06, 2013)
+ * Fix alignment fault on sparc in havegetest.c, procedure A, test5XOR().
+ * Fix build ppc detection in configure.ac
+
 v1.7a (Feb 13, 2013)
-  * Fix parallel build (LDADD fix + VPATH fixes to test programs)
-  * Fix check target for automake v1.13 and previous (use check-local)
-  * Add option to suppress tuning code build
-  * Improve sample spec file for library
+ * Fix parallel build (LDADD fix + VPATH fixes to test programs)
+ * Fix check target for automake v1.13 and previous (use check-local)
+ * Add option to suppress tuning code build
+ * Improve sample spec file for library
 
 v1.7  (Jan 15, 2013)
  * Add havege_status_dump() as basis for haveged diagnostics

@@ -3,7 +3,7 @@
 ## Minimum Autoconf version
 AC_PREREQ([2.59])
 
-AC_INIT([haveged],[1.7a])
+AC_INIT([haveged],[1.7b])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
@@ -138,7 +138,7 @@ case "$host" in
     AC_DEFINE(HAVE_ISA_IA64, 1, [Define to 1 for ia64])
  ;;
 
- powerpc-*|pcc-*|powerpc64|ppc64)
+ powerpc-*|pcc-*|powerpc64-*|ppc64-*)
     AC_DEFINE(HAVE_ISA_PPC, 1, [Define to 1 for ppc])
  ;;
 

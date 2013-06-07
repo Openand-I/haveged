@@ -867,27 +867,27 @@ static H_UINT test5(       /* RETURN: byte offset     */
  *      rv += 1 & (((src[i>>3]>>(i & 7))) ^ ((src[j>>3]>>(j & 7))));
  *   return rv;
  *
- * The high performance version of that looks like:
+ * A high performance optimization using multi-byte casts is 3x as fast as the above but blows up
+ * because of alignment issues (leftovers from the test0 implementation)
+ * The optimized single byte optimization is 2x as fast as the above but uses no alignment games
  */
-#define  PIPELINE5(a)   (*(H_UINT *)a)
-#define  XOR5(a)        (1&(PIPELINE5(src1)>>a ^ PIPELINE5(src2)>>(shift+a)))
-
 static H_UINT test5XOR(H_UINT8 *src, H_UINT shift)
 {
-   H_UINT8 *src1 =src;
-   H_UINT8 *src2 =src + (shift>>3);
-   H_UINT i, rv;
-
+   H_UINT8  *src1;
+   H_UINT   i,rest, rv;
+   
+   src1 = src + (shift>>3);
    shift &= 7;
-   rv = XOR5( 0)+XOR5( 1)+XOR5( 2)+XOR5( 3) +
-        XOR5( 4)+XOR5( 5)+XOR5( 6)+XOR5( 7);
-   for (i=8,src1+=3,src2+=3;i<TEST5_LENGTH;i+=24,src1+=3,src2+=3) {
-      rv += XOR5( 0)+XOR5( 1)+XOR5( 2)+XOR5( 3) +
-            XOR5( 4)+XOR5( 5)+XOR5( 6)+XOR5( 7) +
-            XOR5( 8)+XOR5( 9)+XOR5(10)+XOR5(11) +
-            XOR5(12)+XOR5(13)+XOR5(14)+XOR5(15) + 
-            XOR5(16)+XOR5(17)+XOR5(18)+XOR5(19) +
-            XOR5(20)+XOR5(21)+XOR5(22)+XOR5(23);
+   rest = 8 - shift;
+   for(i=rv=0;i<(TEST5_LENGTH>>3);i++) {
+      H_UINT8 lw   = *src++;
+      H_UINT8 rw   = *src1++;
+      H_UINT8 w;
+
+      for (w = (lw & (0xff>>shift)) ^ (rw>>shift);w!=0;w>>=1)
+         rv += w & 1;
+      for (w = (lw>>rest) ^ (*src1 & (0xff>>rest));w!=0;w>>=1)
+         rv += w & 1;
       }
    return rv;
 }

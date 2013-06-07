@@ -1,3 +1,7 @@
+v1.7b (Jun 06, 2013)
+
+   Fix run-time test aligment problems on sparc and mips. Fix sparc detection in build.
+
 v1.7a (Feb 13, 2013)
 
    Fix broken parallel builds - fix LDADD problem in build, VPATH problems in check targets.

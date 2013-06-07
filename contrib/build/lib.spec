@@ -7,14 +7,14 @@
 %define have_systemd 0
 
 Name:           haveged
-Version:        1.7a
+Version:        1.7b
 Release:        0
 License:        GPLv3
 Group:          System Environment/Daemons
 Summary:        Feed entropy into random pool
 URL:            http://www.issihosts.com/haveged/
 Source0:        http://www.issihosts.com/haveged/haveged-%{version}.tar.gz
-BuildRoot:      %{_builddir}/%{name}-{%version}-build
+BuildRoot:      %{_builddir}/%{name}-root
 %if 0%{?have_systemd}
 BuildRequires:  systemd
 %endif
@@ -39,7 +39,7 @@ algorithm and supporting features.
 %build
 %configure \
   --enable-daemon\
-  --enable-init=sysv.redhat
+  --enable--init=sysv.redhat
 make
 
 %check
@@ -47,9 +47,9 @@ make check
 
 %install
 %makeinstall
-%{__install} -D -m0755 init.d/haveged %{buildroot}%{_sysconfdir}/init.d/%{name}
+%{__install} -D -m0755 %{_sysconfdir}/init.d/%{name}
 %if 0%{?have_systemd}
-%{__install} -D -m0644 init.d/havege.service  %{buildroot}%{_unitdir}/%{name}.service
+%{__install} -D -m0644 %{S:2} %{buildroot}%{_unitdir}/%{name}.service
 %endif
 %{__rm} -f %{buildroot}%{_libdir}/libhavege.*a
 
@@ -61,7 +61,6 @@ make check
 %doc COPYING
 %{_mandir}/man8/haveged.8*
 %{_sbindir}/haveged
-%{_sysconfdir}/init.d/haveged
 %if 0%{?have_systemd}
 %{_unitdir}/haveged.service
 %endif
@@ -74,3 +73,4 @@ make check
 %{_includedir}/%{name}/havege.h
 %doc contrib/build/havege_sample.c
 %{_libdir}/*.so*
+
