@@ -1,0 +1,23 @@
+From: =?UTF-8?q?J=C3=A9r=C3=A9my=20Bobbio?= <lunar@debian.org>
+Date: Fri, 7 Jun 2013 23:18:40 +0200
+Subject: Fix misaligned double calculation on MIPS
+
+---
+ src/havegetest.h |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/havegetest.h b/src/havegetest.h
+index b0b1eb4..2b753c7 100644
+--- a/src/havegetest.h
++++ b/src/havegetest.h
+@@ -97,6 +97,10 @@ typedef struct {
+    H_UINT   options;             /* duty cycle for test5       */
+    char     aux[TEST0_USED];     /* extra work space           */
+    resultA  results[1286];       /* test results               */
++   /* As we will have another struct containing double following this one,
++    * we need to ensure that its size is a multiple of double word size.
++      Otherwise, we'll get bus errors on at least mips. */
++   char     padding[4];
+    } procA;
+ /**
+  * AIS-31 procedure B is a set of multinomial distribution tests
