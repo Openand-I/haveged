@@ -1,3 +1,9 @@
+haveged (1.7b-2~bpo70+1) wheezy-backports; urgency=low
+
+  * Rebuild for wheezy-backports.
+
+ -- Jérémy Bobbio <lunar@debian.org>  Wed, 19 Jun 2013 12:59:50 +0200
+
 haveged (1.7b-2) unstable; urgency=low
 
   * Add a patch to fix alignment issues on MIPS.
