@@ -1,3 +1,11 @@
+haveged (1.7c-1) unstable; urgency=low
+
+  * Imported Upstream version 1.7c:
+    - Remove obsolete patch for MIPS alignment issues.
+  * Ship a systemd service file using dh-systemd
+
+ -- Jérémy Bobbio <lunar@debian.org>  Tue, 20 Aug 2013 09:09:43 +0200
+
 haveged (1.7b-2) unstable; urgency=low
 
   * Add a patch to fix alignment issues on MIPS.
