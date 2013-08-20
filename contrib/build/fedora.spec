@@ -1,6 +1,6 @@
 Summary:        A Linux entropy source using the HAVEGE algorithm
 Name:           haveged
-Version:        1.7b
+Version:        1.7c
 Release:        0%{?dist}
 License:        GPLv3+
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)

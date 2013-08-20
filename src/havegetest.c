@@ -32,6 +32,17 @@
 
 #ifdef ONLINE_TESTS_ENABLE
 /**
+ * This structure is used only to pack the test structures into a single memory allocation.
+ * This is necessary because some architectures have stringent alignment requirements that
+ * cannot be met unless (compiler generated) padding is included. On mips in particular
+ * double must be dword aligned or bus errors result.
+ */
+typedef struct {
+   onlineTests   olt;
+   procA         pa;
+   procB         pb;
+} testsMemory;
+/**
  * The tests and supporting methods
  */
 static H_UINT aisBitTest(procB *context, H_UINT n);
@@ -226,33 +237,34 @@ static int testsRun(       /* RETURN: nz if input needed    */
 {
    procShared  *tps = TESTS_SHARED(h_ctxt);
    onlineTests *context;
+   testsMemory *mem;
+   procB       *pb;
 
    if (0 ==(tps->testsUsed))
       return 0;
    if (0 == h_ctxt->havege_tests) {
-      char  *bp;
-      H_UINT sz = sizeof(onlineTests);
+      H_UINT sz = sizeof(testsMemory);
 
-      if (0!=(tps->testsUsed & A_RUN))
-         sz += sizeof(procA);
-      if (0!=(tps->testsUsed & B_RUN))
-         sz += sizeof(procB);
-      context = (onlineTests *) (bp = (char *) malloc(sz));
-      if (NULL==bp) {
+      if (0==(tps->testsUsed & A_RUN))
+         sz -= sizeof(procA);
+      if (0==(tps->testsUsed & B_RUN))
+         sz -= sizeof(procB);
+      mem = (testsMemory *) malloc(sz);
+      if (NULL==mem) {
          h_ctxt->havege_err = H_NOTESTMEM;
          return 1;
          }
-      memset(bp, 0, sizeof(onlineTests));
-      bp += sizeof(onlineTests);
+      context = (onlineTests *) mem;
+      memset(context, 0, sizeof(onlineTests));
       if (0!=(tps->testsUsed & A_RUN)) {
-         context->pA = (procA *) bp;
+         context->pA = &mem->pa;
          context->pA->procState = TEST_INIT;
-         bp += sizeof(procA);
+         pb = &mem->pb;
          }
+      else pb = (procB *)((void *) &mem->pa);
       if (0!=(tps->testsUsed & B_RUN)) {
-         context->pB = (procB *) bp;
+         context->pB = pb;
          context->pB->procState = TEST_INIT;
-         bp += sizeof(procB);
          }
       h_ctxt->havege_tests = context;
       if (0 != (h_ctxt->havege_raw & H_DEBUG_TEST_IN)) return 1;
@@ -560,7 +572,7 @@ static H_UINT aisSeq(      /* RETURN: last bit index  */
             double q[2];
 
             for(j=0;j<2;j++)
-               q[j] = (double) p->einsen[j] / (double) AIS_LENGTH;
+               q[j] = (double)(p->einsen[j]) / (double) AIS_LENGTH;
             p->results[p->testNbr].finalValue = q[0] - q[1];
             hilf = tid << 8;
             if (p->results[p->testNbr].finalValue <= -0.02 || p->results[p->testNbr].finalValue >= 0.02)
@@ -912,7 +924,7 @@ static H_UINT test6a(      /* RETURN: bit offset      */
          p->bitsUsed += i;
          if (p->bridge<AIS_LENGTH) break;
       case TEST_EVAL:
-         p->results[p->testNbr].finalValue = (double) p->counter[0] / (double) AIS_LENGTH;
+         p->results[p->testNbr].finalValue = (double)(p->counter[0]) / (double) AIS_LENGTH;
          r = tid << 8;
          if (p->results[p->testNbr].finalValue <= 0.25 || p->results[p->testNbr].finalValue >= 0.75)
             r |= 1;
