@@ -7,7 +7,7 @@
 %define have_systemd 0
 
 Name:           haveged
-Version:        1.7b
+Version:        1.7c
 Release:        0
 License:        GPLv3
 Group:          System Environment/Daemons

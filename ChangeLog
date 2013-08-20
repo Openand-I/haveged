@@ -1,3 +1,6 @@
+v1.7c (Jun 08, 2013)
+ * Fix alignment fault on mips in havegetest.c, procedure B.
+
 v1.7b (Jun 06, 2013)
  * Fix alignment fault on sparc in havegetest.c, procedure A, test5XOR().
  * Fix build ppc detection in configure.ac
@@ -48,7 +51,7 @@ v1.4 (Feb 07, 2012)
  * Add new invocation options to support new features.
  
 v1.3 (Oct 23, 2011)
- * Intergrate contributions by Jirka Hladky to fine tune collection implementation.
+ * Integrate contributions by Jirka Hladky to fine tune collection implementation.
  * Add non-daemon interface with option to send continuous stream of output to stdout.
 
 v1.2 (June 26, 2011))

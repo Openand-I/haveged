@@ -1,12 +1,16 @@
+v1.7c (Jun 08, 2013)
+
+   Additional fix for run-time test alignment problems on mips.
+
 v1.7b (Jun 06, 2013)
 
-   Fix run-time test aligment problems on sparc and mips. Fix sparc detection in build.
+   Fix run-time test alignment problems on sparc and mips. Fix ppc detection in build.
 
 v1.7a (Feb 13, 2013)
 
    Fix broken parallel builds - fix LDADD problem in build, VPATH problems in check targets.
    Move to check-local for check target to work with automake v1.13 but retain backward
-   compatability. Modify build to make tuning component optional in build. Improve sample
+   compatibility. Modify build to make tuning component optional in build. Improve sample
    spec file and docs.   
 
 v1.7  (Jan 15, 2013)
