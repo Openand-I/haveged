@@ -1,3 +1,2 @@
 0001-Remove-support-for-CPUID-on-ia64.patch
 0002-Output-some-progress-during-CUSUM-and-RANDOM-EXCURSI.patch
-0003-Fix-misaligned-double-calculation-on-MIPS.patch
