@@ -3,25 +3,25 @@ Upstream-Name: haveged
 Source: http://www.issihosts.com/haveged/
 
 Files: *
-Copyright: 2009-2013 Gary Wuertz <gary@issiweb.com>
+Copyright: 2009-2014 Gary Wuertz <gary@issiweb.com>
 License: GPL-3+
 
 Files: debian/*
 Copyright: 2009-2012 Steve Kostecke <steve@debian.org>
-           2011-2013 Jérémy Bobbio <lunar@debian.org>
+           2011-2014 Jérémy Bobbio <lunar@debian.org>
 License: GPL-3+
 
 Files: src/havege.c src/havege.h
        src/havegecollect.c src/havegecollect.h
        src/haveged.c
-       src/havegetest.h
        src/havegetune.c
-Copyright: 2009-2013 Gary Wuertz <gary@issiweb.com>
+Copyright: 2009-2014 Gary Wuertz <gary@issiweb.com>
            2011-2012 BenEleventh Consulting manolson@beneleventh.com
 License: GPL-3+
 
 Files: src/havegetest.c
-Copyright: 2013 Gary Wuertz <gary@issiweb.com>
+       src/havegetest.h
+Copyright: 2014 Gary Wuertz <gary@issiweb.com>
            2012 BenEleventh Consulting manolson@beneleventh.com
 License: GPL-3+
 
