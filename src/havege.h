@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2014 Gary Wuertz gary@issiweb.com
  ** Copyright 2011-2012 BenEleventh Consulting manolson@beneleventh.com
  **
  ** This program is free software: you can redistribute it and/or modify
@@ -20,8 +20,17 @@
 #ifndef HAVEGE_H
 #define HAVEGE_H
 
+#include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+/**
+ * header/package version as a numeric major, minor, patch triple. See havege_version()
+ * below for useage.
+ */
+#define  HAVEGE_PREP_VERSION  "1.9.1"
 /**
  * Basic types
  */
@@ -48,11 +57,13 @@ typedef int (*pRawIn)(volatile H_UINT *pData, H_UINT szData);
  * options for H_PARAMS below. Lower byte transferred from verbose settings
  * upper byte set by diagnositic run options 
  */
-#define H_VERBOSE         0x001           /* Show config info              */
-#define H_DEBUG_OLT       0x002           /* Show detailed test info       */
+#define H_VERBOSE         0x001           /* deprecated from ver 1.7       */
+#define H_DEBUG_INFO      0x001           /* Show config info, retries     */
+#define H_DEBUG_OLTR      0x002           /* Show detailed test retry info */
 #define H_DEBUG_TIME      0x004           /* Show collection times         */
 #define H_DEBUG_LOOP      0x008           /* Show loop parameters          */
 #define H_DEBUG_COMPILE   0x010           /* Show assembly info            */
+#define H_DEBUG_OLT       0x020           /* Show all test info            */
 
 #define H_DEBUG_RAW_OUT   0x100           /* diagnostic output             */
 #define H_DEBUG_RAW_IN    0x200           /* diagnostic input              */
@@ -64,17 +75,18 @@ typedef int (*pRawIn)(volatile H_UINT *pData, H_UINT szData);
  * 1) Correspondence between provided value and value of H_PTR members are:
  *    ioSz <==> i_readSz, collectSize <==> i_collectSz, nCores <==> n_cores,
  *    options <==> havege_opts
- * 2) The icacheSize and dcacheSize override cache sizes. Both are specified in KB.
+ * 2) ioSz is specified in bytes. collectSize sizes is specified as number
+ *    of H_UINT. The default for ioSz is 1024*sizeof(H_UINT). The default
+ *    for collecSize is 128K * sizeof(H_UINT).
+ * 3) The icacheSize and dcacheSize override cache sizes. Both are specified in KB.
  *    Either may be specified to override the tuning value. If both are provided,
  *    tuning code is bypassed. The fallback tuning values can be overridden
  *    by defining GENERIC_DCACHE and GENERIC_ICACHE (16 will be used if not
  *    otherwise defined)
- * 3) ioSz is specified in bytes. collectSize sizes is specified as number
- *    of H_UINT.
  * 4) null callback values suppress the function.
  * 5) sysFs default is '/sys', procFs default is '/proc'.
  * 6) testSpec same as haveged option "[t<x>][c<x>] x=[a[n][w]][b[w]]". If
- *    not specified the default is "ta8b" - i.e. run the tot tests
+ *    not specified (NULL) the default is "ta8b" - i.e. run the tot tests
  */
 typedef struct {
    H_UINT      ioSz;                      /* size of write buffer          */
@@ -112,7 +124,8 @@ typedef enum {
    H_NODONE,                              /* 15 sem_post done failed             */
    H_NORQST,                              /* 16 sem_post request failed          */
    H_NOCOMP,                              /* 17 wait for completion failed       */
-   H_EXIT                                 /* 18 Exit signal                      */
+   H_EXIT,                                /* 18 Exit signal                      */
+   H_NOTIMER                              /* 19 timer failed                     */
 } H_ERR;
 /**
  * Keep compiler honest
@@ -170,8 +183,9 @@ typedef enum {
  * Notes:
  *
  *    1) Build: package version of source
- *    2) Build options list: [C][M][T] C=clock_gettime, M=multi-core,
- *       T=online-test
+ *    2) Build options: compiler version followed by build configuration encoded
+ *       as string of: [C][I][M][T][V] where  C=clock_gettime, I=tune with cpuid,
+ *       M=multi-core, T=online-test, V=tune with vfs
  *    3) Tuning source lists: D=default, P=parameter, C=cpuid present,
  *          H=hyperthreading, A=AMD cpuid, A5=AMD fn5, A6=AMD fn6, A8=AMD fn8
  *          L2=Intel has leaf2, L4=Intel has leaf4, B=Intel leaf b,
@@ -202,11 +216,11 @@ typedef struct h_status {
  */
 typedef enum {
    H_SD_TOPIC_BUILD,
-/* ver: %s; arch: %s; vend: %s; opts: (%s); collect: %dK */
+/* ver: %s; arch: %s; vend: %s; build: (%s); collect: %dK */
    H_SD_TOPIC_TUNE,
 /* cpu: (%s); data: %dK (%s); inst: %dK (%s); idx: %d/%d; sz: %d/%d */
    H_SD_TOPIC_TEST,
-/* [tot tests: %s: A:%d/%d B: %d/%d;][continuous tests: %s: A:%d/%d B: %d/%d;][last entropy estimate %g] */
+/* [tot tests (%s): A:%d/%d B: %d/%d;][continuous tests (%s): A:%d/%d B: %d/%d;][last entropy estimate %g] */
    H_SD_TOPIC_SUM,
 /* fills: %d, generated: %.4g %c bytes */
 } H_SD_TOPIC;
@@ -218,34 +232,39 @@ typedef enum {
 /**
  * Create an anchor. The caller should check for a non-null return value with
  * a error value of H_NOERR. Any non-null return should be disposed of by a
- * call to havege_destroy() to free any resources.
+ * call to havege_destroy() to free all allocated resources.
  *
  * Possible error values: H_NOERR, H_NOTESTSPEC, H_NOBUF, H_NOTESTMEM,
  *                        H_NOINIT
  */
 H_PTR       havege_create(H_PARAMS *params);
 /**
- * This method frees all allocated anchor resources. If the multi-core option
- * is used, this method should be called from a signal handler to prevent zombie
- * processes. If called by the process that called haveged_create(), hptr will be
- * freed when all child processes (if any) have terminated. If called by a child
+ * Frees all allocated anchor resources. If the multi-core option is used, this
+ * method should be called from a signal handler to prevent zombie processes.
+ * If called by the process that called haveged_create(), hptr will be freed
+ * when all child processes (if any) have terminated. If called by a child
  * process, H_EXIT will be set and all children awakened to exit.
  */
 void        havege_destroy(H_PTR hptr);
 /**
- * Read random bytes from an active anchor. Note that the read must take place
- * within the allocated buffer, hptr->io_buf, and the range is specified
- * in number of H_UINT to read. If the multi-core option is used, this buffer
- * is memory mapped between collectors.
+ * Read random words from an active anchor. The RNG must have been readied
+ * by a previous call to havege_run(). The read must take place within the
+ * allocated buffer, hptr->io_buf, and the range is specified in number of
+ * H_UINT to read. If the multi-core option is used, this buffer is
+ * memory-mapped between collectors.
+ *
+ * Returns the number of H_UINT read.
  * 
  * Possible error values: H_NOERR, H_NOTESRUN, H_NOPOST, H_NODONE,
  *                        H_NORQST, H_NOCOMP, H_EXIT
  */
 int         havege_rng(H_PTR hptr, H_UINT *buf, H_UINT sz);
 /**
- * This method starts the anchor RNG. The operation suceeded if the error member
- * of the handle is H_NOERR. A failed handle should be disposed of by a call
- * to havege_destroy().
+ * Warm up the RNG and run the start-up tests. The operation suceeded if the
+ * error member of the handle is H_NOERR. A failed handle should be disposed
+ * of by a call to havege_destroy().
+ *
+ *  Returns non-zero on failure.
  *
  *  Possible error values: H_NOERR, H_NOCOLLECT, H_NOWALK, H_NOTESTMEM,
  *                         H_NOTASK, H_NOTESTTOT, H_NOWAIT,
@@ -253,13 +272,28 @@ int         havege_rng(H_PTR hptr, H_UINT *buf, H_UINT sz);
  */
 int         havege_run(H_PTR hptr);
 /**
- * The method fills in the h_status structure with read-only information
- * collected from the package build, run-time tuning, and test components.
+ * Fill in the h_status structure with read-only information collected from
+ * the package build, run-time tuning, and test components.
  */
 void        havege_status(H_PTR hptr, H_STATUS hsts);
 /**
- * Standard presentations of havege status. See topic enum above for formats.
+ * Call havege_status() and generate a standard presentation of H_STATUS content.
+ * See the H_SD_TOPIC enum above for the formats.
+ *
+ * Returns the number of bytes placed in buf.
  */
 int         havege_status_dump(H_PTR hptr, H_SD_TOPIC topic, char *buf, size_t len);
+/**
+ * Return/check library prep version. Calling havege_version() with a NULL version
+ * returns the definition of HAVEGE_PREP_VERSION used to build the library. Calling
+ * with HAVEGE_PREP_VERSION as the version checks if this headers definition is
+ * compatible with that of the library, returning NULL if the input is incompatible
+ * with the library. 
+ */
+const char *havege_version(const char *version);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

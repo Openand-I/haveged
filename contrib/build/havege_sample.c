@@ -13,12 +13,6 @@ LD_LIBRARY_PATH=/dev/shm/1/lib ./havege_sample > /dev/shm/havege_random
 */
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <inttypes.h>
-#include <assert.h>
-#include <string.h>
-#include <errno.h>
-#include <stdarg.h>
 
 #ifdef USE_SOURCE
 #include "havege.h"
@@ -38,38 +32,40 @@ int my_status_dump ( H_PTR h, char *buf, size_t buflen) {
     }
   return ret;
 }
-
-
+/**
+ * RNG output is written to stdout
+ */
 int main(void) {
   int rc;
   H_UINT* buf;
-  H_PARAMS havege_parameters;
+  H_PARAMS havege_parameters={0};
   H_PTR havege_state = NULL;
   const int status_buf_size = 8192;
   char status_buf[status_buf_size];
   int i, size;
 
-  memset(&havege_parameters, 0, sizeof(H_PARAMS));
   //havege_parameters.msg_out     = print_msg;
+  fprintf(stderr, "library version is %s\n", havege_version(NULL));
   havege_state = havege_create(&havege_parameters);
-  buf = havege_state->io_buf;
-  size = havege_state->i_readSz /sizeof(H_UINT);
-  rc = havege_state==NULL? H_NOHANDLE : havege_state->error;
-  switch(rc) {
-    case H_NOERR:
-      fprintf(stderr, "havege_create: buffer size is %d\n", havege_state->i_readSz);
-      break;
-    case H_NOTESTSPEC:
-      fprintf(stderr, "ERROR: havege_create: unrecognized test setup: %s", havege_parameters.testSpec);
-      break;
-    default:
-      fprintf(stderr, "ERROR: havege_create has returned %d\n",rc);
-      return 1;
-  }
 
+  rc = havege_state==NULL? H_NOHANDLE : havege_state->error;
+  if (H_NOERR==rc) {
+    buf = havege_state->io_buf;
+    size = havege_state->i_readSz /sizeof(H_UINT);
+    fprintf(stderr, "havege_create: buffer size is %d\n", havege_state->i_readSz);
+    }
+  else {
+    if (H_NOTESTSPEC==rc)
+      fprintf(stderr, "ERROR: havege_create: unrecognized test setup: %s", havege_parameters.testSpec);
+    else fprintf(stderr, "ERROR: havege_create has returned %d\n",rc);
+    if (H_NOHANDLE!=rc)
+      havege_destroy(havage_state);
+    return 1;
+    }
   rc = havege_run(havege_state);
   if ( rc ) {
-    fprintf(stderr, "ERROR: havege_create has returned %d\n", havege_state->error);
+    fprintf(stderr, "ERROR: havege_run has returned %d\n", havege_state->error);
+    havege_destroy(havege_state);
     return 1;
   }
 
@@ -80,12 +76,14 @@ int main(void) {
     rc = havege_rng(havege_state, buf, size);
     if ( rc != (int) size ) {
       fprintf(stderr, "ERROR: havege_rng has returned %d\n", havege_state->error);
+      havege_destroy(havege_state);
       return 1;
     }
 
     rc = fwrite(buf, 1, size, stdout);
     if ( rc < size ) {
       fprintf(stderr, "ERROR: fwrite\n");
+      havege_destroy(havege_state);
       return 1;
     }
   }

@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2014 Gary Wuertz gary@issiweb.com
  ** Copyright 2011-2012 BenEleventh Consulting manolson@beneleventh.com
  **
  ** This program is free software: you can redistribute it and/or modify
@@ -186,24 +186,27 @@ typedef struct h_collect {
 #endif
 /* ################################################################################# */
 /**
- * Other useful definitions
+ * Configuration defaults - allow override at compile
  */
-#define BITS_PER_H_UINT (8*sizeof(H_UINT))    /* Bit packing constant                     */
-#define DEFAULT_BUFSZ   1024*sizeof(H_UINT)   /* Default for ioSz                         */
-#define MININITRAND     32                    /* Number of initial fills to prime RNG     */
-#define NDSIZECOLLECT   (128*1024)            /* Collection size: 128K*H_UINT = .5M byte  */
-/**
- * Configuration defaults
- */
+#ifndef COLLECT_BUFSIZE
+#define COLLECT_BUFSIZE 128                     /* collection buffer size in KW              */
+#endif
 #ifndef GENERIC_DCACHE
-#define GENERIC_DCACHE 16
+#define GENERIC_DCACHE  16                      /* size of L1 data cache                     */
 #endif
 #ifndef GENERIC_ICACHE
-#define GENERIC_ICACHE 16
+#define GENERIC_ICACHE  16                      /* size of L1 instruction cache              */
 #endif
 #ifndef LOOP_CT
-#define LOOP_CT 40                        /* Max interations per collection loop    */
+#define LOOP_CT 40                              /* Max interations per collection loop       */
 #endif
+/**
+ * Other useful definitions
+ */
+#define BITS_PER_H_UINT (8*sizeof(H_UINT))      /* Bit packing constant                      */
+#define DEFAULT_BUFSZ   1024*sizeof(H_UINT)     /* Default for ioSz                          */
+#define MININITRAND     32                      /* Number of initial fills to prime RNG      */
+#define NDSIZECOLLECT   (COLLECT_BUFSIZE*1024)  /* Collection size: 128K*H_UINT = .5M byte   */
 /**
  ** The public collection interface
  */

@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2014 Gary Wuertz gary@issiweb.com
  ** Copyright 2011-2012 BenEleventh Consulting manolson@beneleventh.com
  **
  ** This program is free software: you can redistribute it and/or modify
@@ -37,11 +37,19 @@
 
 #include <errno.h>
 #include "haveged.h"
+#include "havegecollect.h"
+/**
+ * stringize operators for maintainable text
+ */
+#define STRZ(a) #a
+#define SETTINGL(msg,val) STRZ(val) msg
+#define SETTINGR(msg,val) msg STRZ(val)
 /**
  * Parameters
  */
 static struct pparams defaults = {
   .daemon         = PACKAGE,
+  .exit_code      = 1,
   .setup          = 0,
   .ncores         = 0,
   .buffersz       = 0,
@@ -53,15 +61,16 @@ static struct pparams defaults = {
   .low_water      = 0,
   .tests_config   = 0,
   .os_rel         = "/proc/sys/kernel/osrelease",
-  .pid_file       = "/var/run/haveged.pid",
+  .pid_file       = PID_DEFAULT,
   .poolsize       = "/proc/sys/kernel/random/poolsize",
   .random_device  = "/dev/random",
-  .sample_in      = "data",
-  .sample_out     = "sample",
+  .sample_in      = INPUT_DEFAULT,
+  .sample_out     = OUTPUT_DEFAULT,
   .verbose        = 0,
   .watermark      = "/proc/sys/kernel/random/write_wakeup_threshold"
   };
 struct pparams *params = &defaults;
+
 #ifdef  RAW_IN_ENABLE
 FILE *fd_in;
 /**
@@ -94,7 +103,7 @@ static void print_msg(const char *format, ...);
 static void run_app(H_PTR handle, H_UINT bufct, H_UINT bufres);
 static void show_meterInfo(H_UINT id, H_UINT event);
 static void tidy_exit(int signum);
-static void usage(int nopts, struct option *long_options, const char **cmds);
+static void usage(int db, int nopts, struct option *long_options, const char **cmds);
 
 #define  ATOU(a)     (unsigned int)atoi(a)
 /**
@@ -103,18 +112,18 @@ static void usage(int nopts, struct option *long_options, const char **cmds);
 int main(int argc, char **argv)
 {
    static const char* cmds[] = {
-      "b", "buffer",      "1", "Buffer size [KW], default: 128",
-      "d", "data",        "1", "Data cache size [KB]",
-      "i", "inst",        "1", "Instruction cache size [KB]",
-      "f", "file",        "1", "Sample output file,  default: 'sample', '-' for stdout",
+      "b", "buffer",      "1", SETTINGR("Buffer size [KW], default: ",COLLECT_BUFSIZE),
+      "d", "data",        "1", SETTINGR("Data cache size [KB], with fallback to: ", GENERIC_DCACHE ),
+      "i", "inst",        "1", SETTINGR("Instruction cache size [KB], with fallback to: ", GENERIC_ICACHE),
+      "f", "file",        "1", "Sample output file,  default: '" OUTPUT_DEFAULT "', '-' for stdout",
       "F", "Foreground",  "0", "Run daemon in foreground",
       "r", "run",         "1", "0=daemon, 1=config info, >1=<r>KB sample",
-      "n", "number",      "1", "Output size in [k|m|g|t] bytes, 0 = unlimited (if stdout)",
+      "n", "number",      "1", "Output size in [k|m|g|t] bytes, 0 = unlimited to stdout",
       "o", "onlinetest",  "1", "[t<x>][c<x>] x=[a[n][w]][b[w]] 't'ot, 'c'ontinuous, default: ta8b",
-      "p", "pidfile",     "1", "daemon pidfile, default: /var/run/haveged.pid",
-      "s", "source",      "1", "Injection soure file",
+      "p", "pidfile",     "1", "daemon pidfile, default: " PID_DEFAULT ,
+      "s", "source",      "1", "Injection source file, default: '" INPUT_DEFAULT "', '-' for stdin",
       "t", "threads",     "1", "Number of threads",
-      "v", "verbose",     "1", "Output level 0=minimal,1=config/fill info",
+      "v", "verbose",     "1", "Verbose mask 0=none,1=summary,2=retries,4=timing,8=loop,16=code,32=test",
       "w", "write",       "1", "Set write_wakeup_threshold [bits]",
       "h", "help",        "0", "This help"
       };
@@ -125,19 +134,29 @@ int main(int argc, char **argv)
    H_UINT bufct, bufrem, ierr;
    H_PARAMS cmd;
 
+   if (havege_version(HAVEGE_PREP_VERSION)==NULL)
+      error_exit("version conflict %s!=%s", HAVEGE_PREP_VERSION, havege_version(NULL));
 #if NO_DAEMON==1
    params->setup |= RUN_AS_APP;
 #endif
 #ifdef  RAW_IN_ENABLE
+#define DIAG_USAGE2 SETTINGL("=inject ticks,", DIAG_RUN_INJECT)\
+  SETTINGL("=inject data", DIAG_RUN_TEST)
+
    params->setup |= INJECT | RUN_AS_APP;
+#else
+#define DIAG_USAGE2 ""
 #endif
 #ifdef  RAW_OUT_ENABLE
+#define DIAG_USAGE1 SETTINGL("=capture,", DIAG_RUN_CAPTURE)
+
    params->setup |= CAPTURE | RUN_AS_APP;
+#else
+#define DIAG_USAGE1 ""
 #endif
 #if NUMBER_CORES>1
    params->setup |= MULTI_CORE;
 #endif
-   params->tests_config = (0 != (params->setup & RUN_AS_APP))? TESTS_DEFAULT_APP : TESTS_DEFAULT_RUN;
 #ifdef SIGHUP
    signal(SIGHUP, tidy_exit);
 #endif
@@ -145,7 +164,9 @@ int main(int argc, char **argv)
    signal(SIGTERM, tidy_exit);
    strcpy(short_options,"");
    bufct  = bufrem = 0;
-
+  /**
+   * Build options
+   */
    for(i=j=0;j<(nopts*4);j+=4) {
       switch(cmds[j][0]) {
          case 'o':
@@ -155,11 +176,14 @@ int main(int argc, char **argv)
             continue;
 #endif
          case 'r':
+#if defined(RAW_IN_ENABLE) || defined (RAW_OUT_ENABLE)
             if (0!=(params->setup & (INJECT|CAPTURE))) {
-               params->daemon = "havege_diagnostic";
-               cmds[j+3] = "0=usage, 1=anchor_info, 2=capture, 4=inject, 6=inject test";
-               }
-            else if (0!=(params->setup & RUN_AS_APP))
+              params->daemon = "havege_diagnostic";
+              cmds[j+3] = "run level, 0=diagnostic off,1=config info," DIAG_USAGE1 DIAG_USAGE2 ;
+              }
+            else
+#endif
+            if (0!=(params->setup & RUN_AS_APP))
                continue;
             break;
          case 's':
@@ -211,9 +235,9 @@ int main(int argc, char **argv)
          case 'n':
             if (get_runsize(&bufct, &bufrem, optarg))
                error_exit("invalid count: %s", optarg);
-            params->setup |= RUN_AS_APP | RANGE_SPEC;
+            params->setup |= RUN_AS_APP|RANGE_SPEC;
             if (bufct==0 && bufrem==0)
-               params->setup |= USE_STDOUT;
+               params->setup |= USE_STDOUT;             /* ugly but documented behavior! */
             break;
          case 'o':
             params->tests_config = optarg;
@@ -243,11 +267,13 @@ int main(int argc, char **argv)
             break;
          case '?':
          case 'h':
-            usage(nopts, long_options, cmds);
+            usage(0, nopts, long_options, cmds);
          case -1:
             break;
          }
       } while (c!=-1);
+   if (params->tests_config == 0)
+     params->tests_config = (0 != (params->setup & RUN_AS_APP))? TESTS_DEFAULT_APP : TESTS_DEFAULT_RUN;
    memset(&cmd, 0, sizeof(H_PARAMS));
    cmd.collectSize = params->buffersz;
    cmd.icacheSize  = params->i_cache;
@@ -256,8 +282,11 @@ int main(int argc, char **argv)
    cmd.nCores      = params->ncores;
    cmd.testSpec    = params->tests_config;
    cmd.msg_out     = print_msg;
-   if (0 != (params->setup & RUN_AS_APP))
+   if (0 != (params->setup & RUN_AS_APP)) {
       cmd.ioSz = APP_BUFF_SIZE * sizeof(H_UINT);
+      if (params->verbose!=0 && 0==(params->setup & RANGE_SPEC))
+         params->run_level = 1;
+      }
 #ifndef NO_DAEMON
    else  {
       poolSize = get_poolsize();
@@ -268,17 +297,21 @@ int main(int argc, char **argv)
    if (0 != (params->verbose & H_DEBUG_TIME))
       cmd.metering = show_meterInfo;
 
-   if (0 !=(params->setup & CAPTURE) && 0 != (params->run_level == 2))
+   if (0 !=(params->setup & CAPTURE) && 0 != (params->run_level == DIAG_RUN_CAPTURE))
       cmd.options |= H_DEBUG_RAW_OUT;
 #ifdef  RAW_IN_ENABLE
-  if (0 !=(params->setup & INJECT) && 0 != (params->run_level & 4)) {
-      fd_in = fopen(params->sample_in, "rb");
+   if (0 !=(params->setup & INJECT) && 0 != (params->run_level & (DIAG_RUN_INJECT|DIAG_RUN_TEST))) {
+      if (strcmp(params->sample_in,"-") == 0 )
+        fd_in = stdin;
+      else fd_in = fopen(params->sample_in, "rb");
       if (NULL == fd_in)
          error_exit("Unable to open: %s", params->sample_in);
       cmd.injection = injectFile;
-      if (params->run_level==4)
+      if (params->run_level==DIAG_RUN_INJECT)
          cmd.options |= H_DEBUG_RAW_IN;
-      else cmd.options |= H_DEBUG_TEST_IN;
+      else if (params->run_level==DIAG_RUN_TEST)
+         cmd.options |= H_DEBUG_TEST_IN;
+      else usage(1, nopts, long_options, cmds);
       }
 #endif
    handle = havege_create(&cmd);
@@ -291,20 +324,27 @@ int main(int argc, char **argv)
          break;
       default:
          error_exit("Couldn't initialize haveged (%d)", ierr);
-   }
+      }
    if (0 != (params->setup & RUN_AS_APP)) {
-      if (0 == (params->setup & RANGE_SPEC)) {
-         if (params->run_level > 1)
-            if (0!=(params->setup & (INJECT|CAPTURE)))
-              usage(nopts, long_options, cmds);
-            else run_app(handle,
-               params->run_level/sizeof(H_UINT),
-              (params->run_level%sizeof(H_UINT))*1024
-              );
-         else if (params->run_level==1 || 0 != (params->verbose & 1))
-            anchor_info(handle);
-         else usage(nopts, long_options, cmds);
-         }
+      if (params->run_level==1)
+        anchor_info(handle);
+      else if (0==(params->setup&(INJECT|CAPTURE))) {
+        /* must specify range with --nunber or --run > 1 but not both */
+        if (params->run_level>1) {
+          if (0==(params->setup&RANGE_SPEC)) {        /* --run specified    */
+            bufct  = params->run_level/sizeof(H_UINT);
+            bufrem = (params->run_level%sizeof(H_UINT))*1024;
+            }
+          else  usage(2, nopts, long_options, cmds);  /* both specified     */
+          }
+        else if (0==(params->setup&RANGE_SPEC))
+          usage(3,nopts, long_options, cmds);        /* neither specified  */
+        else if (0==(params->setup&USE_STDOUT)&&(bufct+bufrem)==0)
+          usage(4, nopts, long_options, cmds);       /* only with stdout   */
+        run_app(handle, bufct, bufrem);
+        }
+      else if (0==(params->setup&USE_STDOUT)&&(bufct+bufrem)==0)
+        usage(5, nopts, long_options, cmds);       /* only with stdout   */
       else run_app(handle, bufct, bufrem);
       }
 #ifndef NO_DAEMON
@@ -377,7 +417,7 @@ static void run_daemon(    /* RETURN: nothing   */
    else printf ("%s starting up\n", params->daemon);
    if (0 != havege_run(h))
       error_exit("Couldn't initialize HAVEGE rng %d", h->error);
-   if (params->verbose & H_VERBOSE)
+   if (0 != (params->verbose & H_DEBUG_INFO))
      anchor_info(h);
    if (params->low_water>0)
       set_watermark(params->low_water);
@@ -440,7 +480,7 @@ static void anchor_info(H_PTR h)
    int        i;
    
    for(i=0;i<4;i++)
-      if (havege_status_dump(h, topics[i], buf, 120)>0)
+      if (havege_status_dump(h, topics[i], buf, sizeof(buf))>0)
          print_msg("%s\n", buf);
 }
 /**
@@ -459,13 +499,21 @@ static void error_exit(    /* RETURN: nothing   */
 #ifndef NO_DAEMON
    if (params->detached!=0) {
       unlink(params->pid_file);
-      syslog(LOG_INFO, "%s %s", params->daemon, buffer);
+      syslog(LOG_INFO, "%s: %s", params->daemon, buffer);
       }
    else
 #endif
-      fprintf(stderr, "%s %s\n", params->daemon, buffer);
+   {
+   fprintf(stderr, "%s: %s\n", params->daemon, buffer);
+   if (0 !=(params->setup & RUN_AS_APP) && 0 != handle) {
+      if (havege_status_dump(handle, H_SD_TOPIC_TEST, buffer, sizeof(buffer))>0)
+         fprintf(stderr, "%s\n", buffer);
+      if (havege_status_dump(handle, H_SD_TOPIC_SUM, buffer, sizeof(buffer))>0)
+         fprintf(stderr, "%s\n", buffer);
+      }
+   }
    havege_destroy(handle);
-   exit(1);
+   exit(params->exit_code);
 }
 /**
  * Implement fixed point shorthand for run sizes
@@ -525,7 +573,6 @@ static int injectFile(     /* RETURN: not used  */
    H_UINT szData)          /* IN: H_UINT needed  */
 {
    int r;
-
    if ((r=fread((void *)pData, sizeof(H_UINT), szData, fd_in)) != szData)
       error_exit("Cannot read data in file: %d!=%d", r, szData);
    return 0;
@@ -547,7 +594,7 @@ static char *ppSize(       /* RETURN: the formated size  */
          break;
       factor /= 1024.0;
       }
-   sprintf(buffer, "%.4g %c byte", sz / factor, units[i]);
+   snprintf(buffer, 32, "%.4g %c byte", sz / factor, units[i]);
    return buffer;
 }
 /**
@@ -593,10 +640,31 @@ static void run_app(       /* RETURN: nothing         */
       error_exit("Cannot open file <%s> for writing.\n", params->sample_out);
    limits = bufct!=0? 1 : bufres != 0;
    buffer = (H_UINT *)h->io_buf;
+#ifdef RAW_IN_ENABLE
+   {
+      char *format, *in="",*out,*sz,*src="";
+      
+      if (params->run_level==DIAG_RUN_INJECT)
+         in = "tics";
+      else if (params->run_level==DIAG_RUN_TEST)
+         in = "data";
+      if (*in!=0) {
+         src =(fd_in==stdin)? "stdin" : params->sample_in;
+         format = "Inject %s from %s, writing %s bytes to %s\n";
+         }
+      else format = "Writing %s%s%s bytes to %s\n";
+      if (limits)
+         sz = ppSize((char *)buffer, (1.0 * bufct) * APP_BUFF_SIZE * sizeof(H_UINT) + bufres);
+      else sz = "unlimited";
+      out = (fout==stdout)? "stdout" : params->sample_out;
+      fprintf(stderr, format, in, src, sz, out);
+   }  
+#else
    if (limits)
       fprintf(stderr, "Writing %s output to %s\n",
          ppSize((char *)buffer, (1.0 * bufct) * APP_BUFF_SIZE * sizeof(H_UINT) + bufres), params->sample_out);
    else fprintf(stderr, "Writing unlimited bytes to stdout\n");
+#endif
    while(!limits || ct++ < bufct) {
       if (havege_rng(h, buffer, APP_BUFF_SIZE)<1)
          error_exit("RNG failed %d!", h->error);
@@ -611,7 +679,7 @@ static void run_app(       /* RETURN: nothing         */
          error_exit("Cannot write data in file: %s", strerror(errno));
       }
    fclose(fout);
-   if (params->verbose & H_VERBOSE)
+   if (0 != (params->verbose & H_DEBUG_INFO))
       anchor_info(h);
 }
 /**
@@ -642,32 +710,35 @@ static void show_meterInfo(      /* RETURN: nothing   */
 static void tidy_exit(           /* OUT: nothing      */
    int signum)                   /* IN: signal number */
 {
-   error_exit("Stopping due to signal %d\n", signum);
+  params->exit_code = 128 + signum;
+  error_exit("Stopping due to signal %d\n", signum);
 }
 /**
  * send usage display to stderr
  */
 static void usage(               /* OUT: nothing            */
+   int loc,                      /* IN: debugging aid       */
    int nopts,                    /* IN: number of options   */
    struct option *long_options,  /* IN: long options        */
    const char **cmds)            /* IN: associated text     */
 {
-   int i, j;
-   
-   fprintf(stderr, "\nUsage: %s [options]\n\n", params->daemon);
+  int i, j;
+  
+  (void)loc;
+  fprintf(stderr, "\nUsage: %s [options]\n\n", params->daemon);
 #ifndef NO_DAEMON
-   fprintf(stderr, "Collect entropy and feed into random pool or write to file.\n");
+  fprintf(stderr, "Collect entropy and feed into random pool or write to file.\n");
 #else
-   fprintf(stderr, "Collect entropy and write to file.\n");
+  fprintf(stderr, "Collect entropy and write to file.\n");
 #endif
-   fprintf(stderr, "  Options:\n");
-   for(i=j=0;long_options[i].val != 0;i++,j+=4) {
-      while(cmds[j][0] != long_options[i].val && (j+4) < (nopts * 4))
-         j += 4;
-      fprintf(stderr,"     --%-10s, -%c %s %s\n",
-         long_options[i].name, long_options[i].val,
-         long_options[i].has_arg? "[]":"  ",cmds[j+3]);
-      }
-   fprintf(stderr, "\n");
-   exit(1);
+  fprintf(stderr, "  Options:\n");
+  for(i=j=0;long_options[i].val != 0;i++,j+=4) {
+    while(cmds[j][0] != long_options[i].val && (j+4) < (nopts * 4))
+      j += 4;
+    fprintf(stderr,"     --%-10s, -%c %s %s\n",
+      long_options[i].name, long_options[i].val,
+      long_options[i].has_arg? "[]":"  ",cmds[j+3]);
+    }
+  fprintf(stderr, "\n");
+  exit(1);
 }

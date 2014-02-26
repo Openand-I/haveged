@@ -1,7 +1,7 @@
 /**
  ** Determine HAVEGE environment
  **
- ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2014 Gary Wuertz gary@issiweb.com
  ** Copyright 2011-2012 BenEleventh Consulting manolson@beneleventh.com
  **
  ** This program is free software: you can redistribute it and/or modify
@@ -33,12 +33,12 @@
 /**
  * Text representations of build options
  */
-static const char *buildReps[]= {
-   "C",     /* 1 */
-   "M",     /* 2 */
-   "T",     /* 4 */
-   0
-  };
+#define  BUILD_CLOCK    'C'
+#define  BUILD_DIAGS    'D'
+#define  BUILD_CPUID    'I'
+#define  BUILD_THREADS  'M'
+#define  BUILD_OLT      'T'
+#define  BUILD_VFS      'V'
 /**
  * Text representations of TOPO_MAP sources
  */
@@ -77,8 +77,10 @@ static void   cfg_dump(HOST_CFG *anchor);
 /**
  * Local prototypes
  */
+#ifdef TUNING_VFS_ENABLE
 static void    cfg_bitClear(TOPO_MAP *m);
 static int     cfg_bitCount(TOPO_MAP *m);
+#endif
 static void    cfg_bitDecode(char *dest, const char **reps, H_UINT value, H_UINT size);
 #if 0
 static void    cfg_bitDisplay(TOPO_MAP *m);
@@ -124,8 +126,8 @@ static void   cpuid_configIntel4(HOST_CFG *anchor, CPU_INST *w, H_UINT *regs);
 #else
 #define CPUID_CONFIG(a)
 #endif
-/************************* CPUID support ***************************************/
-/*************************  VFS support  ***************************************/
+/************************ /CPUID support ***************************************/
+/************************  VFS support   ***************************************/
 #ifdef TUNING_VFS_ENABLE
 
 #define  VFS_LINESIZE   256
@@ -157,7 +159,7 @@ static void   vfs_parseMask(TOPO_MAP *map, char *input);
 #else
 #define VFS_CONFIG(a)
 #endif
-/*************************  VFS support  ***************************************/
+/************************* /VFS support  ***************************************/
 
 /**
  * Get tuning values for collector
@@ -166,21 +168,34 @@ void havege_tune(          /* RETURN: none               */
   HOST_CFG *anchor,        /* OUT: tuning info           */
   H_PARAMS *param)         /* IN: config parameters      */
 {
-   int i=0;
+   char *bp = anchor->buildOpts;
+   int i;
  
    /**
     * Capture build options
     */
+#ifdef __GNUC__
+   bp += snprintf(bp, 24, "gcc %d.%d.%d ", __GNUC__ ,__GNUC_MINOR__ , __GNUC_PATCHLEVEL__);
+#endif
 #if defined(ENABLE_CLOCK_GETTIME)
-   i |= 1;
+   *bp++ = BUILD_CLOCK;
+#endif
+#if defined(RAW_IN_ENABLE) || defined(RAW_OUT_ENABLE)
+   *bp++ = BUILD_DIAGS;
+#endif
+#ifdef TUNING_CPUID_ENABLE
+   *bp++ = BUILD_CPUID;
 #endif
 #if NUMBER_CORES>1
-   i |= 2;
+   *bp++ = BUILD_THREAD;
 #endif
 #ifdef ONLINE_TESTS_ENABLE
-   i |= 4;
+   *bp++ = BUILD_OLT;
 #endif
-   cfg_bitDecode(anchor->buildOpts, buildReps, i, SZ_BUILDREP);
+#ifdef TUNING_VFS_ENABLE
+   *bp++ = BUILD_VFS;
+#endif
+   *bp = 0;
    /**
     * Virtual file system setup
     */
@@ -233,6 +248,7 @@ void havege_tune(          /* RETURN: none               */
       anchor->caches[anchor->d_tune].cpuMap.source, SZ_CACHEREP);
    TUNE_DEBUG("havege_tune %d/%d\n", anchor->i_tune, anchor->d_tune);
 }
+#ifdef TUNING_VFS_ENABLE
 /**
  * Return number of bits set in map
  */
@@ -252,6 +268,7 @@ static int cfg_bitCount(      /* RETURN : None  */
    for(n=-1;(n=cfg_bitNext(m,n))!=-1;ct++) ;
    return ct;
 }
+#endif
 /**
  * decode bit representation
  */
