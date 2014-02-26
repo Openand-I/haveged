@@ -11,3 +11,4 @@ libhavege.so.1 libhavege1 #MINVER#
  havege_status_dump@Base 1.7
  havege_test@Base 1.7
  havege_tune@Base 1.7
+ havege_version@Base 1.9.0
