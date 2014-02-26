@@ -1,2 +1,3 @@
 version=3
+opts="pgpsigurlmangle=s#/([^/]*)\.tar.*$#/verify/$1.sig#" \
 http://www.issihosts.com/haveged/downloads.html .*haveged-(\d.*)\.(?:tgz|tbz2|tar\.(?:gz|bz2|xz))
