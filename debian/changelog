@@ -1,3 +1,13 @@
+haveged (1.9.1-1) unstable; urgency=low
+
+  * Imported Upstream version 1.9.1. (Closes: #739403)
+  * Add upstream signature verification to debian/watch.
+  * Update debian/copyright.
+  * Update symbol file.
+  * Bump Standards-Version, no changes required.
+
+ -- Jérémy Bobbio <lunar@debian.org>  Wed, 26 Feb 2014 11:39:40 +0000
+
 haveged (1.7c-1) unstable; urgency=low
 
   * Imported Upstream version 1.7c:
