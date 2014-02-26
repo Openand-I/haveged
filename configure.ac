@@ -1,15 +1,14 @@
 ## Process this file with autoconf to produce a configure script.
 
 ## Minimum Autoconf version
-AC_PREREQ([2.59])
 
-AC_INIT([haveged],[1.7c])
+AC_PREREQ([2.59])
+AC_INIT([haveged],[1.9.1])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADER([config.h])
 AM_INIT_AUTOMAKE
-AC_CONFIG_SRCDIR([/src/haveged.c])
+AC_CONFIG_SRCDIR([src/haveged.c])
 AC_CHECK_TYPES([uint32_t, uint8_t])
-
 HA_LDFLAGS=""
 
 ##libtool_start##
@@ -17,18 +16,25 @@ AC_PROG_LIBTOOL
 AM_ENABLE_SHARED
 AM_DISABLE_STATIC
 LT_LANG([C])
-HAVEGE_LT_VERSION="1:0:0"
+HAVEGE_LT_VERSION="1:1:0"
 AC_SUBST(HAVEGE_LT_VERSION)
+AC_DEFINE_UNQUOTED(HAVEGE_LIB_VERSION, "$HAVEGE_LT_VERSION", [Library version])
 ##libtool_end##
 
 ## Make clock_gettime configurable
-AC_ARG_ENABLE(clock_gettime, AS_HELP_STRING([--enable-clock_gettime=[no/yes]],[Enable clock_gettime. [default=no]]),, enable_clock_gettime="no")
+AC_ARG_ENABLE(clock_gettime,
+   AS_HELP_STRING([--enable-clock_gettime=[no/yes]],[Enable clock_gettime [default=yes if no rdtsc]]),
+   , enable_clock_gettime="x")
 
 ## Make build w/o daemon interface configurable
-AC_ARG_ENABLE(daemon, AS_HELP_STRING([--enable-daemon=[yes/no]],[Enable daemon [default=yes if linux]]),, enable_daemon="x" )
+AC_ARG_ENABLE(daemon,
+   AS_HELP_STRING([--enable-daemon=[yes/no]],[Enable daemon [default=yes if linux]]),
+   , enable_daemon="x" )
 
 ## Make diagnostic modes configurable
-AC_ARG_ENABLE(diagnostic, AS_HELP_STRING([--enable-diagnostic=[no/capture/inject/yes]],[Enable diagnostic modes. [default=no]]),, enable_diagnostic="no")
+AC_ARG_ENABLE(diagnostic,
+   AS_HELP_STRING([--enable-diagnostic=[no/capture/inject/yes]],[Enable diagnostic mode [default=no]]),
+   , enable_diagnostic="no")
 if test "x$enable_diagnostic" = "xyes"; then
    AC_DEFINE(RAW_OUT_ENABLE, 1, [Define to 1 for capture diagnostic])
    AC_DEFINE(RAW_IN_ENABLE, 1, [Define to 1 for injection diagnostic])
@@ -42,19 +48,30 @@ elif test "x$enable_diagnostic" == "xinject"; then
 fi
 
 ## Make init configurable
-AC_ARG_ENABLE(init, AS_HELP_STRING([--enable-init=[type]],[Enable service.* or sysv.* template [default=no]]),, enable_init="no" )
+AC_ARG_ENABLE(init,
+   AS_HELP_STRING([--enable-init=[type]],[Enable service.* or sysv.* template [default=no]]),
+   , enable_init="no" )
+AC_ARG_ENABLE(initdir,
+   AS_HELP_STRING([--enable-initdir=DIR], [Directory for systemd service files [default=pkg-config var if init==service.*]]),
+   , enable_initdir="?")
 
 ## Make nist self-test configurable
-AC_ARG_ENABLE(nistest, AS_HELP_STRING([--enable-nistest=[no/yes]],[Run NIST test suite [default=no]]),, enable_nistest="no")
+AC_ARG_ENABLE(nistest,
+   AS_HELP_STRING([--enable-nistest=[no/yes]],[Run NIST test suite [default=no]]),
+   , enable_nistest="no")
 
 ## Make self test features configurable
-AC_ARG_ENABLE(olt, AS_HELP_STRING([--enable-olt=[yes/no]],[Enable online tests [default=yes]]),, enable_olt="yes" )
+AC_ARG_ENABLE(olt,
+   AS_HELP_STRING([--enable-olt=[yes/no]],[Enable online tests [default=yes]]),
+   , enable_olt="yes" )
 if test "x$enable_olt" = "xyes"; then
    AC_DEFINE(ONLINE_TESTS_ENABLE, 1, [Define to 1 for online test features])
 fi
 
 ## Make multi-thread feature configurable
-AC_ARG_ENABLE(threads, AS_HELP_STRING([--enable-threads=[no/yes]],[Enable threads [default=no]]),, enable_threads="no")
+AC_ARG_ENABLE(threads,
+   AS_HELP_STRING([--enable-threads=[no/yes]],[Enable threads [default=no]]),
+   , enable_threads="no")
 if test "x$enable_threads" = "xyes"; then
    AC_DEFINE(NUMBER_CORES, 4, [Define maxium number of collection threads])
    HA_LDFLAGS="-pthread"
@@ -63,14 +80,16 @@ else
 fi
 
 ## Make tuning features configurable
-AC_ARG_ENABLE(tune, AS_HELP_STRING([--enable-tuning=[yes/cpuid/vfs/no]],[Enable tuning modes [default=yes]]),, enable_tune="yes" )
+AC_ARG_ENABLE(tune,
+   AS_HELP_STRING([--enable-tune=[yes/cpuid/vfs/no]],[Enable host tune methods [default=yes]]),
+   , enable_tune="yes" )
 if test "x$enable_tune" = "xyes"; then
-   AC_DEFINE(TUNING_CPUID_ENABLE, 1, [Define to 1 for host tuning features])
-   AC_DEFINE(TUNING_VFS_ENABLE, 1, [Define to 1 for host tuning features])
+   AC_DEFINE(TUNING_CPUID_ENABLE, 1, [Define to 1 to tune with host cpuid])
+   AC_DEFINE(TUNING_VFS_ENABLE, 1, [Define to 1 to tune with host vfs])
 elif test "x$enable_tune" == "xcpuid"; then
-   AC_DEFINE(TUNING_CPUID_ENABLE, 1, [Define to 1 for host tuning features])
+   AC_DEFINE(TUNING_CPUID_ENABLE, 1, [Define to 1 to tune with host cpuid])
 elif test "x$enable_tune" == "xvfs"; then
-   AC_DEFINE(TUNING_VFS_ENABLE, 1, [Define to 1 for host tuning features])
+   AC_DEFINE(TUNING_VFS_ENABLE, 1, [Define to 1 to tune wiht host vfs])
 fi
 
 ## Checks for programs.
@@ -82,7 +101,6 @@ AC_HEADER_TIME
 
 ## Checks for library functions.
 AC_PROG_GCC_TRADITIONAL
-AC_FUNC_MALLOC
 AC_FUNC_SELECT_ARGTYPES
 AC_TYPE_SIGNAL
 AC_CHECK_FUNCS([__rdtsc floor gettimeofday memset pow select sched_yield sqrt])
@@ -155,13 +173,17 @@ case "$host" in
  ;;
 
  *)
-    enable_clock_gettime="yes"
+    if test "x$enable_clock_gettime" = "xx"; then
+      enable_clock_gettime="yes"
+    else
+      AC_MSG_ERROR([no timer source for host :"$host".])
+    fi
     AC_DEFINE_UNQUOTED(HAVE_ISA_GENERIC, "$host", [Define generic host])
  ;;
 
 esac
 
-## Check clock_getime option
+## Check clock_gettime option
 
 if test "x$enable_clock_gettime" = "xyes"; then
     saved_libs=$LIBS
@@ -193,14 +215,15 @@ else
      ;;
 esac
 fi
-## AC_DEFINE_UNQUOTED(DAEMON_TYPE,"$daemon_type",[daemon type])
 
 ## Fixup install and test options
 
-AC_SUBST(HA_DISTRO,$enable_init):
+AC_SUBST(HA_DISTRO,$enable_init)
+AC_SUBST(HA_UNITD,$enable_initdir)
 AM_CONDITIONAL(ENABLE_BIN, test "$daemon_type" = "none")
 AM_CONDITIONAL(ENABLE_SYSV, test "$init_type" = "sysv")
 AM_CONDITIONAL(ENABLE_SYSTEMD, test "$init_type" = "systemd")
+AM_CONDITIONAL(ENABLE_SYSTEMD_LOOKUP, test "$enable_initdir" = "?")
 AM_CONDITIONAL(ENABLE_NOINIT, test "$init_type" = "none")
 AM_CONDITIONAL(ENABLE_ENT_TEST, test "yes" = "yes")
 AM_CONDITIONAL(ENABLE_NIST_TEST, test "$enable_nistest" = "yes")

@@ -3,6 +3,9 @@
 /* Define to 1 for clock_gettime */
 #undef ENABLE_CLOCK_GETTIME
 
+/* Library version */
+#undef HAVEGE_LIB_VERSION
+
 /* Define to 1 if you have the <cpuid.h> header file. */
 #undef HAVE_CPUID_H
 
@@ -44,10 +47,6 @@
 
 /* Define to 1 if you have the <linux/random.h> header file. */
 #undef HAVE_LINUX_RANDOM_H
-
-/* Define to 1 if your system has a GNU libc compatible `malloc' function, and
-   to 0 otherwise. */
-#undef HAVE_MALLOC
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
@@ -188,10 +187,10 @@
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME
 
-/* Define to 1 for host tuning features */
+/* Define to 1 to tune with host cpuid */
 #undef TUNING_CPUID_ENABLE
 
-/* Define to 1 for host tuning features */
+/* Define to 1 to tune wiht host vfs */
 #undef TUNING_VFS_ENABLE
 
 /* Version number of package */
@@ -199,6 +198,3 @@
 
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const
-
-/* Define to rpl_malloc if the replacement function should be used. */
-#undef malloc

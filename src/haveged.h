@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2014 Gary Wuertz gary@issiweb.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
  */
 struct pparams  {
    char           *daemon;          /* Daemon name - default is "haveged"           */
+   H_UINT         exit_code;        /* Exit code                                    */
    H_UINT         setup;            /* setup options                                */
    H_UINT         ncores;           /* number of cores to use                       */
    H_UINT         buffersz;         /* size of collection buffer (kb)               */
@@ -48,7 +49,10 @@ struct pparams  {
 /**
  * Buffer size used when not running as daemon
  */
-#define   APP_BUFF_SIZE 1024
+#define   APP_BUFF_SIZE    1024
+#define   INPUT_DEFAULT    "data"
+#define   OUTPUT_DEFAULT   "sample"
+#define   PID_DEFAULT      "/var/run/haveged.pid"
 /**
  * Setup options (for app)
  */
@@ -60,12 +64,17 @@ struct pparams  {
 #define   RUN_IN_FG     0x020
 #define   SET_LWM       0x040
 #define   MULTI_CORE    0x080
-#define   TEST_TEST     0x100
 /**
  * Default tests settings
  */
 #define  TESTS_DEFAULT_APP "ta8b"   /* startup tests                    */
 #define  TESTS_DEFAULT_RUN "ta8bcb" /* startup + continuous B           */
+/**
+ * Run levels for diagnostic build
+ */
+#define  DIAG_RUN_CAPTURE  2        /* output clock ticks   */
+#define  DIAG_RUN_INJECT   4        /* inject clock ticks   */
+#define  DIAG_RUN_TEST     8        /* inject test data     */
 /**
  * Status/monitoring information
  */

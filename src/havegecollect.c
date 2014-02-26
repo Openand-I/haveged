@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2014 Gary Wuertz gary@issiweb.com
  ** Copyright 2011-2012 BenEleventh Consulting manolson@beneleventh.com
  **
  ** This program is free software: you can redistribute it and/or modify
@@ -145,6 +145,7 @@ static int havege_gather(H_COLLECT * h_ctxt) __attribute__((optimize(1)));
 static int  havege_gather(H_COLLECT * h_ctxt);
 #endif
 static void havege_ndinit(H_PTR h_ptr, struct h_collect *h_ctxt);
+
 /**
  * Create a collector
  */
@@ -186,14 +187,26 @@ H_COLLECT *havege_ndcreate(/* RETURN: NULL on failure          */
          /**
           * Warm up the generator, running the startup tests
           */
-         (void)havege_gather(h_ctxt);
-         for(i=1;i<MININITRAND;i++) {
-            (void)havege_gather(h_ctxt);
-            }
+#if defined(RAW_IN_ENABLE)
+      if (0 == (h_ctxt->havege_raw & H_DEBUG_TEST_IN))
+#endif
+         {
+            H_UINT t0=0;
+            
+            (void)havege_gather(h_ctxt);           /* first sample   */
+            t0 = h_ctxt->havege_tic;
+            for(i=1;i<MININITRAND;i++)
+               (void)havege_gather(h_ctxt);        /* warmup rng     */
+            if (h_ctxt->havege_tic==t0) {          /* timer stuck?   */
+               h_ptr->error = H_NOTIMER;
+               havege_nddestroy(h_ctxt);
+               return NULL;
+               }
+         }
 #ifdef ONLINE_TESTS_ENABLE
          {
             procShared *ps = (procShared *)(h_ptr->testData);
-            while(ps->run(h_ctxt, 0)) {
+            while(0!=ps->run(h_ctxt, 0)) {      /* run tot tests  */
                (void)havege_gather(h_ctxt);
                }
          }
@@ -245,7 +258,6 @@ H_UINT havege_ndread(         /* RETURN: data value     */
 
       if (0 != (pm = h_ptr->metering))
          (*pm)(h_ctxt->havege_idx, 0);
-      (void) havege_gather(h_ctxt);
 #ifdef ONLINE_TESTS_ENABLE
       {
          procShared *ps = (procShared *)(h_ptr->testData);
@@ -311,15 +323,17 @@ static int havege_gather(     /* RETURN: 1 if initialized    */
    H_UINT   i=0,pt=0,inter=0;
    H_UINT  *Pt0, *Pt1, *Pt2, *Pt3, *Ptinter;
 
-loop_enter:
 #if defined(RAW_IN_ENABLE)
-if (0 != (h_ctxt->havege_raw & H_DEBUG_TEST_IN) && h_ctxt->havege_tests!=0) {
-   (*h_ctxt->havege_rawInput)(RESULT, h_ctxt->havege_szCollect);
-   goto loop_exit;
+if (0 != (h_ctxt->havege_raw & H_DEBUG_RAW_IN)) {
+   (*h_ctxt->havege_rawInput)(h_ctxt->havege_tics, h_ctxt->havege_szCollect>>3);
+   h_ctxt->havege_tic = h_ctxt->havege_tics[0];
    }
-if (0 != (h_ctxt->havege_raw & H_DEBUG_RAW_IN))
-   (*h_ctxt->havege_rawInput)(h_ctxt->havege_tics, h_ctxt->havege_szCollect);
+else if (0 != (h_ctxt->havege_raw & H_DEBUG_TEST_IN)) {
+   (*h_ctxt->havege_rawInput)(RESULT, h_ctxt->havege_szCollect);
+   return 1;
+   }
 #endif
+loop_enter:
 LOOP(40,39)
    #include "oneiteration.h"
 LOOP(39,38)

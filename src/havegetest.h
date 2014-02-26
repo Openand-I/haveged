@@ -1,8 +1,8 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
- ** Copyright 2011-2012 BenEleventh Consulting manolson@beneleventh.com
+ ** Copyright 2012-2014 Gary Wuertz gary@issiweb.com
+ ** Copyright 2012 BenEleventh Consulting manolson@beneleventh.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -30,11 +30,13 @@
  * simple state machine to manage input.
  */
 typedef enum {
-  TEST_INIT,               /* initialize the test           */
+  TEST_INIT,               /* initialize test (internal)    */
   TEST_INPUT,              /* test input needed             */
-  TEST_EVAL,               /* evaluating results (not used) */
+  TEST_EVAL,               /* evaluating results (internal) */
   TEST_DONE,               /* test complete                 */
-  TEST_RETRY               /* retry the test                */
+  TEST_RETRY,              /* retry the test                */
+  TEST_IGNORE,             /* ignore failure and continue   */
+  TEST_FAIL                /* Test has failed               */
   } TEST_STATE;
 /**
  * AIS-31 procedure A uses the FIPS140-1 as test1 thru test4. A disjointedness test is
@@ -45,7 +47,7 @@ typedef enum {
 /**
  * Constants for the fips tests. Note AIS-31 v1 uses the unamended FIPS test limits
  */
-#define  FIPS_LENGTH       (20000>>3)
+#define  FIPS_USED         20000
 #ifndef  USE_AMENDED_FIPS
 #define  FIPS_MAX_RUN      34
 #define  FIPS_ONES_LOW     9654
@@ -67,7 +69,7 @@ typedef enum {
  * test 0 consumes 64k * 48 bits
  */
 #define  TEST0_LENGTH      65536
-#define  TEST0_USED        (TEST0_LENGTH * 6)
+#define  TEST0_USED        (TEST0_LENGTH * 48)
 #define  TEST5_LENGTH      5000
 /**
  * Fixed size input for procedure A
@@ -82,10 +84,11 @@ typedef struct {
 } resultA;
 /**
  * AIS-31 procedure A context. Options are defined in haveged.h
+ * This puppy weighs in at ~3 MB.
  */
 typedef struct {
-   char     *data;               /* input for test             */         
-   H_UINT   range;               /* number of words of input   */
+   H_UINT8  *data;               /* input for test             */         
+   H_UINT   range;               /* number of bits of input    */
    H_UINT   procState;           /* procedure state            */
    H_UINT   procRetry;           /* retry indication           */
    H_UINT   testId;              /* test selector 0-5          */
@@ -93,9 +96,8 @@ typedef struct {
    H_UINT   testState;           /* FSM state of current test  */
    H_UINT   bridge;              /* index for data bridge      */
    H_UINT   bytesUsed;           /* number of bytes used       */
-   H_UINT8  *chain5;             /* chain to test 5            */
    H_UINT   options;             /* duty cycle for test5       */
-   char     aux[TEST0_USED];     /* extra work space           */
+   H_UINT8  aux[TEST0_USED];     /* extra work space           */
    resultA  results[1286];       /* test results               */
    } procA;
 /**
@@ -122,11 +124,11 @@ typedef struct {
    double finalValue;            /* final value                */
    } resultB;
 /**
- * AIS-31 procedure B context
+ * AIS-31 procedure B context, a svelt 1.25 KB
  */
 typedef struct {
    H_UINT   *noise;              /* input for test             */         
-   H_UINT   range;               /* number of words of input   */
+   H_UINT   range;               /* number of bits of input    */
    H_UINT   procState;           /* procedure state            */
    H_UINT   procRetry;           /* retry indication           */
    H_UINT   testId;              /* test selector 6-8          */ 
@@ -145,13 +147,15 @@ typedef struct {
 /**
  * Testing options
  */
-#define  A_CYCLE    0x01ff       /* test5 duty cycle           */
-#define  A_WARN     0x0200       /* Only warn of A fails       */
-#define  A_RUN      0x0400       /* Run procedure A            */
-#define  A_OPTIONS  0x03ff
-#define  B_WARN     0x1000       /* Only warn of B fails       */
-#define  B_RUN      0x2000       /* Run proceure B             */
-#define  B_OPTIONS  0x1000
+#define  A_CYCLE    0x000001ff   /* test5 duty cycle           */
+#define  A_WARN     0x00000200   /* Only warn of A fails       */
+#define  A_RUN      0x00000400   /* Run procedure A            */
+#define  A_OPTIONS  0x000003ff
+#define  B_WARN     0x00001000   /* Only warn of B fails       */
+#define  B_RUN      0x00002000   /* Run proceure B             */
+#define  B_OPTIONS  0x00001000
+#define  X_OPTIONS  0x000f0000   /* isolated test index        */
+#define  X_RUN      0x00100000   /* diagnostic isolated test   */
 /**
  * A test procedure run consists of an indicator and options
  */
@@ -164,6 +168,7 @@ typedef struct {
  * Services provided
  */
 typedef int   (*ptrDiscard)(H_COLLECT *rdr);
+typedef void  (*ptrReport)(H_COLLECT * h_ctxt, H_UINT action, H_UINT prod, H_UINT state, H_UINT ct);
 typedef int   (*ptrRun)(H_COLLECT *rdr, H_UINT prod);
 
 /**
@@ -175,6 +180,7 @@ typedef int   (*ptrRun)(H_COLLECT *rdr, H_UINT prod);
 typedef struct {
    ptrDiscard     discard;                   /* release test resources     */
    ptrRun         run;                       /* run test suite             */
+   ptrReport      report;                    /* report test results        */
    H_UINT         options;                   /* verbosity, etc.            */
    H_UINT         testsUsed;                 /* tests used                 */
    procInst       totTests[2];               /* tot tests to run           */
@@ -189,17 +195,20 @@ typedef struct {
    double         *G;                        /* test8 lookup table         */
 } procShared;
 /**
- * How to get procShared instance from H_COLLECT
+ * How to get test context and shared data from H_COLLECT
  */
+#define TESTS_CONTEXT(c) (onlineTests *)(c->havege_tests)
 #define TESTS_SHARED(c)  (procShared *)(((H_PTR)(c->havege_app))->testData)
 /**
- * Online testing context - one per collector
+ * Online testing context - one per collector. Note szTotal is for diagnostic
+ * use only, no effort is made to account for overflow.
  */
 typedef struct {
    H_UINT      result;           /* nz if failed               */
    H_UINT      totIdx;           /* tot test idx               */
    H_UINT      runIdx;           /* run test idx               */
-   H_UINT      szTotal;          /* total bytes processed      */
+   H_UINT      szCarry;          /* bits carried in next proc  */
+   H_UINT      szTotal;          /* total bits processed       */
    procA       *pA;              /* procedure A instance       */
    procB       *pB;              /* procedure B instance       */
 } onlineTests;
@@ -210,6 +219,6 @@ typedef struct {
 /**
  * Public interface
  */
-int havege_test(H_PTR h, H_PARAMS *params);
+int havege_test(procShared *tps, H_PARAMS *params);
 
 #endif

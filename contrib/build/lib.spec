@@ -1,13 +1,13 @@
 #
 # Sample spec file for haveged and haveged-devel
-# Copyright  (c)  2013
+# Copyright  (c)  2013-2014
 # This file and all modifications and additions to the pristine
 # package are under the same license as the package itself.
 #
 %define have_systemd 0
 
 Name:           haveged
-Version:        1.7c
+Version:        1.9
 Release:        0
 License:        GPLv3
 Group:          System Environment/Daemons

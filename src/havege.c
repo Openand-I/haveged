@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2014 Gary Wuertz gary@issiweb.com
  ** Copyright 2011-2012 BenEleventh Consulting manolson@beneleventh.com
  **
  ** This program is free software: you can redistribute it and/or modify
@@ -29,10 +29,15 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <string.h>
-#ifdef ONLINE_TESTS_ENABLE
 #include "havegetest.h"
-#endif
 #include "havegetune.h"
+/**
+ * The library version interface results in a pair of version definitions
+ * which must agree yet must also be string literals. No foolproof build
+ * mechanism could be devised to ensure this, so a run-time check was added
+ * instead - if the two definitions do not agree, the interface is diabled.
+ */
+#define  INTERFACE_DISABLED() strcmp(PACKAGE_VERSION,HAVEGE_PREP_VERSION)
 
 #if  NUMBER_CORES>1
 #include <errno.h>
@@ -69,11 +74,20 @@ typedef struct {
    HOST_CFG          cfg;        /* Runtime environment     */
    procShared        std;        /* Shared test data        */
 } H_SETUP;
+
+static int    testsConfigure(H_UINT *tot, H_UINT *run, char *options);
+static void   testsStatus(procShared *tps, char *tot, char *prod);
+
+static void   testReport(H_COLLECT * h_ctxt, H_UINT action, H_UINT prod, H_UINT state, H_UINT ct);
+static void   testReportA(H_PTR h, procA *context);
+static void   testReportB(H_PTR h, procB *context);
+
 #else
 typedef struct {
    struct h_anchor   info;       /* Application anchor      */
    HOST_CFG          cfg;        /* Runtime environment     */
 } H_SETUP;
+
 #endif
 /**
  * Local prototypes
@@ -93,6 +107,8 @@ H_PTR havege_create(             /* RETURN: app state    */
    H_UINT     n = params->nCores;
    H_UINT     sz = params->ioSz;
 
+   if (INTERFACE_DISABLED())
+      return NULL;
    if (0 == n)
       n = 1;
    if (0 == sz)
@@ -117,9 +133,37 @@ H_PTR havege_create(             /* RETURN: app state    */
    h->instCache       = &env->caches[env->i_tune];
    h->dataCache       = &env->caches[env->d_tune];
 #ifdef ONLINE_TESTS_ENABLE
-   h->testData = &anchor->std;
-   if (havege_test(h, params))
-      return h;
+   {
+      static const H_UINT tests[5]  = {B_RUN, A_RUN};
+
+      H_UINT tot=0,run=0;
+      H_UINT i, j;
+
+      procShared  *tps = (procShared *)&anchor->std;
+      if (testsConfigure(&tot, &run, params->testSpec)) {
+         h->error = H_NOTESTSPEC;
+         return h;
+         }
+      for(i=j=0;i<2;i++)
+         if (0!=(tot & tests[i])) {
+            tps->testsUsed |= tests[i];
+            tps->totTests[j].action  = tests[i];
+            tps->totTests[j++].options = tot;
+            }
+      for(i=j=0;i<2;i++)
+         if (0!=(run & tests[i])) {
+            tps->testsUsed |= tests[i];
+            tps->runTests[j].action  = tests[i];
+            tps->runTests[j++].options = run;
+            }
+      testsStatus(tps, tps->totText, tps->prodText);
+      tps->report = testReport;
+      h->testData = tps;
+      if (havege_test(tps, params)) {
+         h->error = H_NOTESTMEM;
+         return h;
+         }
+   }
 #endif
 #if NUMBER_CORES>1
    havege_ipc(h, n, sz);
@@ -229,7 +273,7 @@ void havege_status(        /* RETURN: none     */
       CPU_INST   *cp = (CPU_INST *)  (h_ptr->cpu);
       procShared *ps = (procShared *)(h_ptr->testData);
 
-      h_sts->version        = PACKAGE_VERSION;
+      h_sts->version        = HAVEGE_PREP_VERSION;
       h_sts->buildOptions   = en->buildOpts;
       h_sts->cpuSources     = en->cpuOpts;
       h_sts->i_cacheSources = en->icacheOpts;
@@ -254,9 +298,8 @@ int  havege_status_dump(   /* RETURN: output length   */
   char *buf,               /* OUT: output area        */
   size_t len)              /* IN: size of buf         */
 {
-   struct h_status status;
-   int   n = 0;
-   int   m;
+   struct   h_status status;
+   int      n = 0;
    
    if (buf != 0) {
       *buf = 0;
@@ -264,7 +307,7 @@ int  havege_status_dump(   /* RETURN: output length   */
       havege_status(hptr, &status);
       switch(topic) {
          case H_SD_TOPIC_BUILD:
-            n += snprintf(buf, len, "ver: %s; arch: %s; vend: %s; opts: (%s); collect: %dK",
+            n += snprintf(buf, len, "ver: %s; arch: %s; vend: %s; build: (%s); collect: %dK",
                status.version,
                hptr->arch,
                status.vendor,
@@ -284,28 +327,26 @@ int  havege_status_dump(   /* RETURN: output length   */
                );
             break;
          case H_SD_TOPIC_TEST:
-            snprintf(buf, len, "%s%s", status.tot_tests,status.prod_tests);
-            m = 0==strchr(buf, 'B')? 0 : 1;
-            *buf = 0;
-            if (0!=*status.tot_tests)
-               n += snprintf(buf, len, "tot tests: %s: A:%d/%d B: %d/%d%s",
-                  status.tot_tests,
-                  status.n_tests[ H_OLT_TOT_A_P],
-                  status.n_tests[ H_OLT_TOT_A_F],
-                  status.n_tests[ H_OLT_TOT_B_P],
-                  status.n_tests[ H_OLT_TOT_B_F],
-                  *status.prod_tests==0? "":"; "
-                  );
-            if (0!=*status.prod_tests)
-               n += snprintf(buf+n,len-n, "continuous tests: %s: A:%d/%d B: %d/%d;",
-                  status.prod_tests,
-                  status.n_tests[ H_OLT_PROD_A_P],
-                  status.n_tests[ H_OLT_PROD_A_F],
-                  status.n_tests[ H_OLT_PROD_B_P],
-                  status.n_tests[ H_OLT_PROD_B_F]
-                  );
-            if (0 != m)
-               n += snprintf(buf+n, len-n, " last entropy estimate %g", status.last_test8);
+            {
+               H_UINT   m;
+               
+               if (strlen(status.tot_tests)>0) {
+                  n += snprintf(buf+n, len-n, "tot tests(%s): ", status.tot_tests);
+                  if ((m = status.n_tests[ H_OLT_TOT_A_P] + status.n_tests[ H_OLT_TOT_A_F])>0)
+                     n += snprintf(buf+n, len-n, "A:%d/%d ", status.n_tests[ H_OLT_TOT_A_P], m);
+                  if ((m = status.n_tests[ H_OLT_TOT_B_P] + status.n_tests[ H_OLT_TOT_B_F])>0)
+                     n += snprintf(buf+n, len, "B:%d/%d ", status.n_tests[ H_OLT_TOT_B_P], m);
+                  }
+               if (strlen(status.prod_tests)>0) {
+                  n += snprintf(buf+n, len-n, "continuous tests(%s): ", status.prod_tests);
+                  if ((m = status.n_tests[ H_OLT_PROD_A_P] + status.n_tests[ H_OLT_PROD_A_F])>0)
+                     n += snprintf(buf+n, len-n, "A:%d/%d ", status.n_tests[ H_OLT_PROD_A_P], m);
+                  if ((m = status.n_tests[ H_OLT_PROD_B_P] + status.n_tests[ H_OLT_PROD_B_F])>0)
+                     n += snprintf(buf+n, len, "B:%d/%d ", status.n_tests[ H_OLT_PROD_B_P], m);
+                  }
+               if (n>0)
+                  n += snprintf(buf+n, len-n, " last entropy estimate %g", status.last_test8);
+            }
             break;
          case H_SD_TOPIC_SUM:
             {
@@ -331,10 +372,42 @@ int  havege_status_dump(   /* RETURN: output length   */
    return n;
 }
 /**
+ * Return-check library prep version. Calling havege_version() with a NULL version
+ * returns the definition of HAVEGE_PREP_VERSION used to build the library. Calling
+ * with HAVEGE_PREP_VERSION as the version checks if this headers definition is
+ * compatible with that of the library, returning NULL if the input is incompatible
+ * with the library. 
+ */
+const char *havege_version(const char *version)
+{
+   if (INTERFACE_DISABLED())
+      return NULL;
+   /**
+    * Version check academic at the moment, but initial idea is to do a table
+    * lookup on the library version to get a pattern to match against the
+    * input version.
+    */
+   if (version) {
+      H_UINT l_interface=0, l_revision=0, l_age=0;
+      H_UINT p, p_interface, p_revision, p_patch;
+      
+#ifdef HAVEGE_LIB_VERSION
+      sscanf(HAVEGE_LIB_VERSION, "%d:%d:%d", &l_interface, &l_revision, &l_age);
+#endif
+      (void)l_interface;(void)l_revision;(void)l_age;(void)p_patch;  /* No check for now */
+
+      p = sscanf(version, "%d.%d.%d", &p_interface, &p_revision, &p_patch);
+      if (p!=3 || p_interface != 1 || p_revision != 9)
+         return NULL;
+      }
+   return HAVEGE_PREP_VERSION;
+}
+
+/**
  * Place holder if output display not provided
  */
 static void havege_mute(   /* RETURN: none            */
-   const char *format,     /* IN: sprintf format      */
+   const char *format,     /* IN: printf format       */
    ...)                    /* IN: args                */
 {
    ;
@@ -484,5 +557,208 @@ static void havege_unipc(  /* RETURN: none         */
 
 }
 #endif
+#ifdef ONLINE_TESTS_ENABLE
+/**
+ * Interpret options string as settings. The option string consists of terms
+ * like "[t|c][a[1-8][w]|b[w]]". 
+ */
+static int testsConfigure( /* RETURN: non-zero on error  */
+   H_UINT *tot,            /* OUT: tot test options      */
+   H_UINT *run,            /* OUT: run test options      */
+   char *options)          /* IN: option string          */
+{
+   H_UINT section=0;
+   int   c;
 
+   if (options==0)
+      options = DEFAULT_TEST_OPTIONS;
+   while(0 != (c = *options++)) {
+      switch(c) {
+         case 'T': case 't':        /* tot test          */
+            section = 't';
+            *tot = 0;
+            break;
+         case 'C': case 'c':        /* production test   */
+            section = 'c';
+            *run = 0;
+            break;
+         case 'A': case 'a':
+            if (!section) return 1;
+            c  = atoi(options);
+            if (c >= 1 && c < 9) {
+               c = 1<<c;
+               options +=1;
+               }
+            else c = 0;
+            c |= A_RUN;
+            if (*options=='W' || *options=='w') {
+               c |= A_WARN;
+               options++;
+               }
+            if (section=='t')
+               *tot |= c;
+            else *run |= c;
+            break;
+         case 'B': case 'b':
+            if (!section) return 1;
+            c = B_RUN;
+            if (*options=='W' || *options=='w') {
+               c |= B_WARN;
+               options++;
+               }
+            if (section=='t')
+               *tot |= c;
+            else *run |= c;
+            break;
+         default:
+            return 1;
+         }
+      }
+   return 0;
+}
+/**
+ * Show test setup. Output strings are [A[N]][B]..
+ */
+static void testsStatus(    /* RETURN: test config     */
+   procShared  *tps,        /* IN: shared data         */
+   char *tot,               /* OUT: tot tests          */
+   char *prod)              /* OUT: production tests   */
+{
+   procInst    *p;
+   char        *dst = tot;
+   H_UINT      i, j, k, m;
+   
+   *dst = *tot = 0;
+   p = tps->totTests;
+   for(i=0;i<2;i++,p = tps->runTests, dst = prod) {
+      for(j=0;j<2;j++,p++) {
+         switch(p->action) {
+            case A_RUN:
+               *dst++ = 'A';
+               if (0!=(m = p->options & A_CYCLE)) {
+                  for(k=0;m>>=1 != 0;k++);
+                  *dst++ = '0' + k;
+                  }
+               if (0 != (p->options & A_WARN))
+                  *dst++ = 'w';
+               break;
+            case B_RUN:
+               *dst++ = 'B';
+               if (0 != (p->options & B_WARN))
+                  *dst++ = 'w';
+               break;
+            }
+         *dst = 0;
+         }
+      }
+}
+/**
+ * Reporting unit for tests
+ */
+static void testReport(
+   H_COLLECT * h_ctxt,     /* IN-OUT: collector context     */
+   H_UINT action,          /* IN: A_RUN or B_RUN            */
+   H_UINT prod,            /* IN: 0==tot, else continuous   */
+   H_UINT state,           /* IN: state variable            */
+   H_UINT ct)              /* IN: bytes consumed            */
+{
+   H_PTR       h_ptr = (H_PTR)(h_ctxt->havege_app);
+   onlineTests *context = (onlineTests *) h_ctxt->havege_tests;
+   char        *result;
+   
+   switch(state) {
+      case TEST_DONE:   result = "success";           break;
+      case TEST_RETRY:  result = "retry";             break;
+      case TEST_IGNORE: result = "warning";           break;
+      default:          result = "failure";
+      }
+   h_ptr->print_msg("AIS-31 %s procedure %s: %s %d bytes fill %d\n",
+      prod==0? "tot" : "continuous", action==A_RUN? "A":"B", result, ct, h_ptr->n_fills);
+   if (0 != (h_ptr->havege_opts & (H_DEBUG_OLTR|H_DEBUG_OLT)))
+      switch(action){
+         case A_RUN:
+            testReportA(h_ptr, context->pA);
+            break;
+         case B_RUN:
+            testReportB(h_ptr, context->pB);
+            break;
+         }
+}
+/**
+ * Reporting unit for procedure A. Results are 0-257*(1-[4 or 5])
+ */
+static void testReportA(       /* RETURN: nothing               */
+   H_PTR h_ptr,               /* IN: application instance      */
+   procA *p)                  /* IN: proc instance             */
+{
+   static const char * pa_tests[6] = {"test0","test1","test2","test3","test4","test5"};
+
+   H_UINT ran[6],sum[6];
+   H_UINT ct, i, j, k;
+         
+   for (i=0;i<6;i++)
+      ran[i] = sum[i] = 0;
+   for(i=0;i<p->testRun;i++){
+      ct = p->results[i].testResult;
+      j = ct>>8;
+      ran[j] += 1;
+      if (0==(ct & 0xff))
+         sum[j] += 1;
+      }
+   h_ptr->print_msg("procedure A: %s:%d/%d, %s:%d/%d, %s:%d/%d, %s:%d/%d, %s:%d/%d, %s:%d/%d\n",
+      pa_tests[0], sum[0], ran[0],
+      pa_tests[1], sum[1], ran[1],
+      pa_tests[2], sum[2], ran[2],
+      pa_tests[3], sum[3], ran[3],
+      pa_tests[4], sum[4], ran[4],
+      pa_tests[5], sum[5], ran[5]
+      );
+   for(i=k=0;i<p->testRun;i++){
+      ct = p->results[i].testResult;
+      j = ct>>8;
+      if (j==1)
+         k+=1;
+      if (0!=(ct & 0xff))
+         h_ptr->print_msg("  %s[%d] failed with %d\n", pa_tests[j%6],k,p->results[i].finalValue);
+      }
+}
+/**
+ * Reporting unit for procedure B. Results are 6a-6b-7a[0]-7a[1]-7b[0]-7b[1]-7b[2]-7b[3]-8
+ */
+static void testReportB(       /* RETURN: nothing               */
+   H_PTR h_ptr,               /* IN: application instance      */
+   procB *p)                  /* IN: proc instance             */
+{
+   static const char * pb_tests[5] = {"test6a","test6b","test7a","test7b","test8"};
+
+   H_UINT ct, i, j, ran[5],sum[5];
+
+   for (i=0;i<5;i++) {
+      ran[i]  = sum[i] = 0;
+      }
+   for(i=0;i<p->testNbr;i++){
+      ct = p->results[i].testResult;
+      j = ct>>8;
+      ran[j] += 1;
+      if (0==(ct & 0xff))
+         sum[j] += 1;
+      }
+   h_ptr->print_msg("procedure B: %s:%d/%d, %s:%d/%d, %s:%d/%d, %s:%d/%d, %s:%d/%d\n",
+      pb_tests[0], sum[0], ran[0],
+      pb_tests[1], sum[1], ran[1],
+      pb_tests[2], sum[2], ran[2],
+      pb_tests[3], sum[3], ran[3],
+      pb_tests[4], sum[4], ran[4]
+      );
+   for(i=0;i<5;i++)
+      ran[i] = p->testNbr;
+   for(i=0;i<p->testNbr;i++){
+      ct = p->results[i].testResult;
+      j = ct>>8;
+      if (i < ran[j]) ran[j] = i;
+      if (0!=(ct & 0xff))
+         h_ptr->print_msg("  %s[%d] failed with %g\n", pb_tests[j],i-ran[j],p->results[i].finalValue);
+      }
+}
+#endif
 

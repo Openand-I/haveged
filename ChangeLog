@@ -1,3 +1,24 @@
+v1.9.1 (Feb 11, 2014)
+ * Documentation and sample file touch-up for v1.9.
+ 
+v1.9  (Feb 10, 2014)
+ * Fix dead man limit in test procedure B. Fix broken AIS retry logic.
+ * Correct online test defaults
+ * Improve diagnostic display of test results, output summary, testing retries
+ * Add test/output summary to all abnormal app terminations
+ * Add required <stddef.h> include to havege.h. Add quick version check for lib users.
+ * Improve diagnostic build for testing online tests. Fix broken inject features.
+ * Rework major portions of havegetest,c for better performance with -fpic
+ * Correct test procedure B to match independent clean room implementation of reference
+ * Tweak configure.ac for arm build, make --disable-clock_gettime consistent
+ * Major edit of man pages, haveged.8 and libhavege.3
+ * Many other documentation changes: havege.h, README, etc...
+ 
+v1.8   (Jan 02, 2014)
+ * Fix return code for signalled termination.
+ * Update init.d/service.fedora - new return code + simple, not forking
+ * Add --enable_unitdir as DESTDIR for systemd install
+
 v1.7c (Jun 08, 2013)
  * Fix alignment fault on mips in havegetest.c, procedure B.
 

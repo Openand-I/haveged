@@ -21,7 +21,7 @@ new)
     make distclean
     rm -rf autom4te.cache
     libtoolize --force --install
-    auotreconf --force
+    autoreconf --force
     ./configure
 ;;
 sample)

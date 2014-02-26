@@ -1,7 +1,7 @@
 /**
  ** Simple entropy harvester based upon the havege RNG
  **
- ** Copyright 2009-2013 Gary Wuertz gary@issiweb.com
+ ** Copyright 2009-2014 Gary Wuertz gary@issiweb.com
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -86,7 +86,7 @@ typedef struct {
 /**
  * Size of representation fields
  */
-#define  SZ_BUILDREP    8
+#define  SZ_BUILDREP    32
 #define  SZ_CPUREP      64
 #define  SZ_CACHEREP    32
 /**
