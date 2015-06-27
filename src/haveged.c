@@ -27,6 +27,15 @@
 #include <fcntl.h>
 #include <sys/time.h>
 
+#ifdef __ANDROID__
+#include <pthread.h>
+#endif
+
+/* Paths to sysfs sleep/wake nodes */
+#define SYSFS_SLEEP_NODE "/sys/power/wait_for_fb_sleep"
+#define SYSFS_WAKE_NODE "/sys/power/wait_for_fb_wake" 
+
+
 #ifndef NO_DAEMON
 #include <unistd.h>
 #include <syslog.h>
@@ -58,12 +67,12 @@ static struct pparams defaults = {
   .d_cache        = 0,
   .i_cache        = 0,
   .run_level      = 0,
-  .low_water      = 0,
+  .low_water      = 4096,
   .tests_config   = 0,
   .os_rel         = "/proc/sys/kernel/osrelease",
   .pid_file       = PID_DEFAULT,
   .poolsize       = "/proc/sys/kernel/random/poolsize",
-  .random_device  = "/dev/random",
+  .random_device  = "/dev/urandom",
   .sample_in      = INPUT_DEFAULT,
   .sample_out     = OUTPUT_DEFAULT,
   .verbose        = 0,
@@ -106,6 +115,81 @@ static void tidy_exit(int signum);
 static void usage(int db, int nopts, struct option *long_options, const char **cmds);
 
 #define  ATOU(a)     (unsigned int)atoi(a)
+
+#ifdef __ANDROID__
+
+/* Suspend loop mutex */
+pthread_mutex_t	suspend_mutex         = PTHREAD_MUTEX_INITIALIZER;
+
+/* Resume loop mutex */
+pthread_mutex_t	resume_mutex          = PTHREAD_MUTEX_INITIALIZER;
+
+/* Device sleeping mutex */
+pthread_mutex_t	device_sleeping_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void *do_suspend_on_sleep_loop (void *trash)
+{
+        int sleep_fd;
+        char sleep_read_buffer;
+        
+        while (1)
+        {
+        	sleep_fd = open (SYSFS_SLEEP_NODE, O_RDONLY);
+
+        	if (sleep_fd != -1)
+        	{
+        	        read (sleep_fd, &sleep_read_buffer, 0);
+                	close (sleep_fd);
+                } else
+                {
+                        fprintf (stderr, "Unable to open: %s (%s)\n", SYSFS_SLEEP_NODE, strerror (errno));
+                        break;
+                }
+                
+                pthread_mutex_trylock (&device_sleeping_mutex);
+                pthread_mutex_lock (&suspend_mutex);
+                pthread_mutex_unlock (&resume_mutex);
+
+                sleep (1);
+        }
+
+        pthread_mutex_unlock (&resume_mutex);
+        
+        return (NULL);
+}
+
+void *do_resume_on_wake_loop (void *trash)
+{
+        int wake_fd;
+        char wake_read_buffer;
+
+        while (1)
+        {
+        	wake_fd = open (SYSFS_WAKE_NODE, O_RDONLY);
+	        if (wake_fd != -1)
+        	{
+	                read (wake_fd, &wake_read_buffer, 0);
+                	close (wake_fd);
+                } else
+                {
+                        fprintf (stderr, "Unable to open: %s (%s)\n", SYSFS_WAKE_NODE, strerror (errno));
+                        break;
+                }
+
+                pthread_mutex_unlock (&device_sleeping_mutex);
+                pthread_mutex_lock (&resume_mutex);
+                pthread_mutex_unlock (&suspend_mutex);
+
+                sleep (1);
+        }
+        
+        pthread_mutex_unlock (&suspend_mutex);
+        
+        return (NULL);
+}
+
+#endif
+
 /**
  * Entry point
  */
@@ -162,6 +246,11 @@ int main(int argc, char **argv)
 #endif
    signal(SIGINT, tidy_exit);
    signal(SIGTERM, tidy_exit);
+
+   sigset_t mask;
+   sigfillset(&mask);
+   sigprocmask(SIG_SETMASK, &mask, NULL);
+
    strcpy(short_options,"");
    bufct  = bufrem = 0;
   /**
@@ -360,16 +449,27 @@ int main(int argc, char **argv)
 static void daemonize(     /* RETURN: nothing   */
    void)                   /* IN: nothing       */
 {
-   FILE *fh;
+   struct flock fl = {F_WRLCK, SEEK_SET,   0,      0,     0 };
+   fl.l_pid = getpid();
+
+   /*FILE *fh;*/
+
    openlog(params->daemon, LOG_CONS, LOG_DAEMON);
    syslog(LOG_NOTICE, "%s starting up", params->daemon);
    if (daemon(0, 0) == -1)
       error_exit("Cannot fork into the background");
-   fh = fopen(params->pid_file, "w");
-   if (!fh)
+   /*fh = fopen(params->pid_file, "w");
+   if (!fh)*/
+   int pid_file = open(params->pid_file, O_CREAT | O_RDWR, 0644);
+   int rc = fcntl(pid_file, F_SETLK, &fl);
+   if ( rc == -1 )
       error_exit("Couldn't open PID file \"%s\" for writing: %s.", params->pid_file, strerror(errno));
-   fprintf(fh, "%i", getpid());
-   fclose(fh);
+   char pid[8];
+   sprintf(pid,"%i",getpid());
+   write(pid_file, pid, strlen(pid));
+
+   /*fprintf(fh, "%i", getpid());
+   fclose(fh);*/
    params->detached = 1;
 }
 /**
@@ -405,6 +505,9 @@ static int get_poolsize(   /* RETURN: number of bits  */
 static void run_daemon(    /* RETURN: nothing   */
    H_PTR h)                /* IN: app instance  */
 {
+#ifdef __ANDROID__
+   pthread_t t4,t5;
+#endif
    int                     random_fd = -1;
    struct rand_pool_info   *output;
 
@@ -421,37 +524,48 @@ static void run_daemon(    /* RETURN: nothing   */
      anchor_info(h);
    if (params->low_water>0)
       set_watermark(params->low_water);
+TRY1:
    random_fd = open(params->random_device, O_RDWR);
-   if (random_fd == -1)
-     error_exit("Couldn't open random device: %s", strerror(errno));
-
+   if (random_fd == -1) { sleep(15); goto TRY1; }
+     /*error_exit("Couldn't open random device: %s", strerror(errno));*/
+#ifdef __ANDROID__
+ 	/* Fire up worker threads */
+ 	if (pthread_create(&t4, NULL, &do_resume_on_wake_loop, NULL ) |
++	    pthread_create(&t5, NULL, &do_suspend_on_sleep_loop, NULL )) {
+ 		/*error_exit("Insufficient resources to start threads");*/
+		sleep(1);
+ 	}
+#endif
    output = (struct rand_pool_info *) h->io_buf;
    for(;;) {
+      
       int current,nbytes,r;
 
       fd_set write_fd;
+TRY2:
       FD_ZERO(&write_fd);
       FD_SET(random_fd, &write_fd);
       for(;;)  {
          int rc = select(random_fd+1, NULL, &write_fd, NULL, NULL);
          if (rc >= 0) break;
-         if (errno != EINTR)
-            error_exit("Select error: %s", strerror(errno));
+         if (errno != EINTR) { sleep(15); goto TRY2; }
+            /*error_exit("Select error: %s", strerror(errno));*/
          }
-      if (ioctl(random_fd, RNDGETENTCNT, &current) == -1)
-         error_exit("Couldn't query entropy-level from kernel");
+      if (ioctl(random_fd, RNDGETENTCNT, &current) == -1) { sleep(15); continue ; }
+         /*error_exit("Couldn't query entropy-level from kernel");*/
       /* get number of bytes needed to fill pool */
       nbytes = (poolSize  - current)/8;
-      if(nbytes<1)   continue;
+      if(nbytes<8)   { sleep(1); continue; }
       /* get that many random bytes */
       r = (nbytes+sizeof(H_UINT)-1)/sizeof(H_UINT);
-      if (havege_rng(h, (H_UINT *)output->buf, r)<1)
-         error_exit("RNG failed! %d", h->error);
+      if (havege_rng(h, (H_UINT *)output->buf, r)<1) { sleep(15); continue ; }
+         /*error_exit("RNG failed! %d", h->error);*/
       output->buf_size = nbytes;
       /* entropy is 8 bits per byte */
       output->entropy_count = nbytes * 8;
-      if (ioctl(random_fd, RNDADDENTROPY, output) == -1)
-         error_exit("RNDADDENTROPY failed!");
+      if (ioctl(random_fd, RNDADDENTROPY, output) == -1) { sleep(15); continue ; }
+         /*error_exit("RNDADDENTROPY failed!");*/
+      usleep(1000);
       }
 }
 /**
