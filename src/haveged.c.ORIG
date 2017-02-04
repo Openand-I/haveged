@@ -35,90 +35,6 @@
 #include <linux/random.h>
 #endif
 
-#include <sys/stat.h>
-#include <poll.h>
-#include <sys/inotify.h>
-
-#ifndef NO_DAEMON
-static int  get_poolsize(void);
-
-static void set_low_watermark(int level);
-static void set_watermark(int level);
-
-#ifdef __ANDROID__
-
-static void write_file( char file_name[], char value[] );
-
-#include <linux/ioprio.h>
-#include <pthread.h>
-int sleeping=0;
-
-void *fn_sleep (void *ret)
-{
-		FILE *fp = NULL;
-        char buffer='o';
-//   nice(+5);
-        
-//   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_RT,7));
-
-        while (1)
-        {
-			fp = fopen("/sys/power/wait_for_fb_sleep", "r");
-        	if ( fp )
-        	{
-			    buffer='o';
-        	    buffer = fgetc(fp);
-				if ( buffer == 's' ) {
-			      sleeping=1;                       
-				  sync();
-				  write_file("/proc/sys/vm/drop_caches","1");
-				  write_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor","ondemand");
-				  write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","ondemand");
-				  write_file("/proc/sys/vm/vfs_cache_pressure","0");
-				  write_file("/proc/sys/vm/dirty_ratio","100");
-				  write_file("/proc/sys/vm/dirty_background_ratio","100");
-				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
-				  write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
-				  set_low_watermark(8);
-				  set_watermark(get_poolsize()-32);
-				}
-			    fclose(fp);
-            }
-			
-			fp = fopen("/sys/power/wait_for_fb_wake", "r");
-	        if ( fp  )
-        	{
-			    buffer='o';
-	            buffer = fgetc(fp);
-	  		    sleeping=0;
-				if ( buffer == 'a' ) {
-				 write_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor","interactive");
-				 write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","interactive");
-				 set_low_watermark(8);
-				 set_watermark(get_poolsize()-32);
-			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
-				 write_file("/proc/sys/vm/dirty_ratio","99");
-				 write_file("/proc/sys/vm/dirty_background_ratio","1");
-//			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
-//			     write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
-				}
-				
-			    fclose(fp);
-            } else break;
-			
-	  		sleeping=0;				
-			sleep(5);
-			
-        }
-
-	sleeping=0;
-	return NULL;
-}
-
-#endif
-
-#endif
-
 #include <errno.h>
 #include "haveged.h"
 #include "havegecollect.h"
@@ -147,8 +63,7 @@ static struct pparams defaults = {
   .os_rel         = "/proc/sys/kernel/osrelease",
   .pid_file       = PID_DEFAULT,
   .poolsize       = "/proc/sys/kernel/random/poolsize",
-  .random_device  = "/dev/entropy/random",
-//  .random_device  = "/dev/random",
+  .random_device  = "/dev/random",
   .sample_in      = INPUT_DEFAULT,
   .sample_out     = OUTPUT_DEFAULT,
   .verbose        = 0,
@@ -174,7 +89,7 @@ static H_PTR handle = NULL;
 static H_UINT poolSize = 0;
 
 static void daemonize(void);
-//static int  get_poolsize(void);
+static int  get_poolsize(void);
 static void run_daemon(H_PTR handle);
 static void set_watermark(int level);
 #endif
@@ -247,13 +162,6 @@ int main(int argc, char **argv)
 #endif
    signal(SIGINT, tidy_exit);
    signal(SIGTERM, tidy_exit);
-
-#ifdef __ANDROID__
-   sigset_t mask;
-   sigfillset(&mask);
-   sigprocmask(SIG_SETMASK, &mask, NULL);
-#endif
-
    strcpy(short_options,"");
    bufct  = bufrem = 0;
   /**
@@ -452,34 +360,16 @@ int main(int argc, char **argv)
 static void daemonize(     /* RETURN: nothing   */
    void)                   /* IN: nothing       */
 {
-
+   FILE *fh;
    openlog(params->daemon, LOG_CONS, LOG_DAEMON);
    syslog(LOG_NOTICE, "%s starting up", params->daemon);
    if (daemon(0, 0) == -1)
       error_exit("Cannot fork into the background");
-
-   setsid();
-
-   struct flock fl = {F_WRLCK, SEEK_SET,   0,      0,     0 };
-   fl.l_pid = getpid();
-
-   int pid_file = open(params->pid_file, O_CREAT | O_RDWR, 0644);
-   int rc = fcntl(pid_file, F_SETLK, &fl);
-   if ( rc == -1 )
+   fh = fopen(params->pid_file, "w");
+   if (!fh)
       error_exit("Couldn't open PID file \"%s\" for writing: %s.", params->pid_file, strerror(errno));
-
-   char pid[8];
-   sprintf(pid,"%i",getpid());
-
-   if ( write(pid_file, pid, strlen(pid)) == 0 ) { /* */ }
-   
-#ifdef __ANDROID__
-   write_file("/proc/%s/oom_adj","-17");
-#endif
-//   nice(+5);
-        
-//   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_RT,0));
-
+   fprintf(fh, "%i", getpid());
+   fclose(fh);
    params->detached = 1;
 }
 /**
@@ -515,9 +405,7 @@ static int get_poolsize(   /* RETURN: number of bits  */
 static void run_daemon(    /* RETURN: nothing   */
    H_PTR h)                /* IN: app instance  */
 {
-
    int                     random_fd = -1;
-//   FILE *random_fp = NULL;
    struct rand_pool_info   *output;
 
    if (0 != params->run_level) {
@@ -531,119 +419,40 @@ static void run_daemon(    /* RETURN: nothing   */
       error_exit("Couldn't initialize HAVEGE rng %d", h->error);
    if (0 != (params->verbose & H_DEBUG_INFO))
      anchor_info(h);
-
-   int poolsize = get_poolsize();
-
-   if (params->low_water==0) params->low_water=(poolsize-32);
-
-   if (params->low_water>(poolsize-32)) params->low_water=(poolsize-32);
-
    if (params->low_water>0)
       set_watermark(params->low_water);
-	   
-   set_low_watermark(8);
+   random_fd = open(params->random_device, O_RDWR);
+   if (random_fd == -1)
+     error_exit("Couldn't open random device: %s", strerror(errno));
 
-   struct stat statu = { 0 };
+   output = (struct rand_pool_info *) h->io_buf;
+   for(;;) {
+      int current,nbytes,r;
 
-   if( stat("/dev/entropy", &statu) != 0 ) mkdir( "/dev/entropy", 0770 );
-
-   struct stat status = { 0 };
-
-   if ( stat(params->random_device, &status) != 0 ) { 
-      mknod( params->random_device, S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP, makedev(1,8) );
-   }
-	
-   while( stat(params->random_device, &status) != 0 ) { 
-      sleep(4);
-   }
-	
-   if ( ( status.st_mode & S_IFMT ) != S_IFCHR ) error_exit("Couldn't open random file \"%s\" for writing: NOT_CHAR_DEVICE",params->random_device);
-	
-   if ( ( status.st_mode & S_IFMT ) == S_IFLNK ) error_exit("Couldn't open random file \"%s\" for writing: SYMBOLIC_LINK",params->random_device);
-	
-   random_fd = -1;
-   while ( random_fd < 0 ) {
-       random_fd = open(params->random_device, O_RDWR); 
-	   if ( random_fd >= 0 ) break;
-       close(random_fd);
-	   sleep(1);
-   }
-
-  output = (struct rand_pool_info *) h->io_buf;
-
-#ifdef __ANDROID__
-   pthread_t thread;
-   pthread_create(&thread, NULL, &fn_sleep, NULL );
-   FILE *fp=NULL;
-#endif
-
-//   nice(+5);
-        
-//   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
-	
-   int count=0;
-   long timeout=300000;
-	
-   for(;;) { 
-	   	   
-	  int current,nbytes,r;
-	  
-	  if ( sleeping == 1 ) timeout = 300000; else timeout = 60000;
-		  
-      count=1;
-      for(count=1;count <= 1;count++) {
-          struct pollfd pfd[1];
-          pfd[0].fd=random_fd;pfd[0].revents = 0;pfd[0].events=POLLOUT;      
-		  
-          int ret = poll(pfd, 1, timeout);
-	      if ( ret > 0 && pfd[0].revents & POLLOUT ) { count = 0 ; break; }
-	  }	  	  
-
-	  if ( count != 0 ) { 
-			  continue; 
-	  }
-
-	  if (ioctl(random_fd, RNDGETENTCNT, &current) != 0) { 
-		  sleep(4);
-		  continue; 
-	  } 
-      
-	  /* get number of bytes needed to fill pool */
-
-	  nbytes = poolSize - current;
-
-	  if ( nbytes < 1 )
-	    continue;
-
-	  nbytes = ( nbytes / 8 ) + 1 ;
-	  
-//	  fprintf(stderr,"p = %d ; c = %d ; n = %d", poolSize, current, nbytes);
-	   
+      fd_set write_fd;
+      FD_ZERO(&write_fd);
+      FD_SET(random_fd, &write_fd);
+      for(;;)  {
+         int rc = select(random_fd+1, NULL, &write_fd, NULL, NULL);
+         if (rc >= 0) break;
+         if (errno != EINTR)
+            error_exit("Select error: %s", strerror(errno));
+         }
+      if (ioctl(random_fd, RNDGETENTCNT, &current) == -1)
+         error_exit("Couldn't query entropy-level from kernel");
+      /* get number of bytes needed to fill pool */
+      nbytes = (poolSize  - current)/8;
+      if(nbytes<1)   continue;
       /* get that many random bytes */
       r = (nbytes+sizeof(H_UINT)-1)/sizeof(H_UINT);
-      if (havege_rng(h, (H_UINT *)output->buf, r)<1) { 
-		  sleep(4); 
-		  continue; 
-	  }
-
+      if (havege_rng(h, (H_UINT *)output->buf, r)<1)
+         error_exit("RNG failed! %d", h->error);
       output->buf_size = nbytes;
       /* entropy is 8 bits per byte */
       output->entropy_count = nbytes * 8;
-/*	   
-#ifdef __ANDROID__
-	if ( sleeping == 1 ) {
-		fp = fopen("/sys/power/wait_for_fb_wake", "r");
-		if ( fp != NULL ) { 
-		  char buffer=fgetc(fp); 
-		  fclose(fp);
-		} 
-	}
-#endif
-*/
-	   ioctl(random_fd, RNDADDENTROPY, output);
-	   
-    }
-	close(random_fd);
+      if (ioctl(random_fd, RNDADDENTROPY, output) == -1)
+         error_exit("RNDADDENTROPY failed!");
+      }
 }
 /**
  * Set random write threshold
@@ -657,40 +466,9 @@ static void set_watermark( /* RETURN: nothing   */
    if (wm_fh) {
       fprintf(wm_fh, "%d\n", level);
       fclose(wm_fh);
-   }
-}
-
-/**
- * Set random read threshold
- */
-static void set_low_watermark( /* RETURN: nothing   */
-   int level)              /* IN: threshold     */
-{
-   FILE *wm_fh;
-   wm_fh = fopen("/proc/sys/kernel/random/read_wakeup_threshold", "w");
-   if (wm_fh) {
-      fprintf(wm_fh, "%d\n", level);                                                                                                 
-      fclose(wm_fh);
-   }
-}
-
-#ifdef __ANDROID__
-/**
- * Write File
- */
-static void write_file( char file_name[], char value[] )              
-{
-
-   FILE *wm_fh;
-   wm_fh = fopen(file_name, "w");
-   if (wm_fh) {
-      fprintf(wm_fh, "%s\n", value);                                                                                                 
-      fclose(wm_fh);
       }
+   else error_exit("Fail:set_watermark()!");
 }
-
-#endif
-
 #endif
 /**
  * Display handle information

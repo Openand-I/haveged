@@ -46,54 +46,12 @@
 /**
  * Provide a generic timer fallback
  */
-
-/* Credits https://en.wikipedia.org/wiki/Xorshift */
-
-uint64_t x, y;
-
-
-static void set_S_0(void)
+static H_UINT havege_clock(void)
 {
-	struct timespec ts_I, ts_II;
+   struct timespec ts;
 
-	clock_gettime(CLOCK_REALTIME, &ts_I);
-	clock_gettime(CLOCK_REALTIME, &ts_II);
-	
-	x = ts_I.tv_nsec;
-	y = ts_II.tv_nsec;
-		
-}
-
-static uint64_t havege_clock(void)
-{
-	unsigned int count = 0;
-    static int init = 0;
-	
-	if ( init == 0 ) {
-//		set_S_0();
-//		x = 22337203685;
-//		y = 74586302733;
-		x = random();
-		y = random();
-	}
-	
-	init++;
-		
-	x = x  + ( y * 1000000000LL );
-	
-	for ( count = 0; count < 16; count++ ) {
-
-	x ^= x >> 12; // a
-	x ^= x << 25; // b
-	x ^= x >> 27; // c
-		
-	x = x * UINT64_C(2685821657736338717);
-		
-//fprintf(stderr,"x = %llu ; y = %llu ; z = %llu ; w = %llu", x, y, z, w);	
-	}	
-
-//fprintf(stderr,"x = %llu ; count = %d", x, count);	
-	return x;
+   clock_gettime(CLOCK_MONOTONIC, &ts);
+   return (H_UINT)(ts.tv_nsec + ts.tv_sec * 1000000000LL);
 }
 #endif
 

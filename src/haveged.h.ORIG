@@ -52,7 +52,7 @@ struct pparams  {
 #define   APP_BUFF_SIZE    1024
 #define   INPUT_DEFAULT    "data"
 #define   OUTPUT_DEFAULT   "sample"
-#define   PID_DEFAULT      "/dev/haveged.pid"
+#define   PID_DEFAULT      "/var/run/haveged.pid"
 /**
  * Setup options (for app)
  */
