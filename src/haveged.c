@@ -612,10 +612,13 @@ static void run_daemon(    /* RETURN: nothing   */
 
 	  nbytes = poolSize - current;
 
-	  if ( nbytes < 1 )
+	  if ( nbytes < 16 )
 	    continue;
 
-	  nbytes = ( nbytes / 8 ) + 1 ;
+	  if ( nbytes > 64 )
+	    nbytes = 64;
+
+	  nbytes = ( nbytes / 8 ) + 1;
 	  
 //	  fprintf(stderr,"p = %d ; c = %d ; n = %d", poolSize, current, nbytes);
 	   
