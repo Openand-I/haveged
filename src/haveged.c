@@ -56,7 +56,7 @@ void *fn_sleep (void *ret)
 {
 		FILE *fp = NULL;
         char buffer='o';
-   nice(15);
+   nice(5);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -77,15 +77,15 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/vfs_cache_pressure","0");
 				  write_file("/proc/sys/vm/dirty_ratio","100");
 				  write_file("/proc/sys/vm/dirty_background_ratio","100");
-//				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
-//				  write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
+				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
+				  write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
 				  set_low_watermark(8);
 				  set_watermark(4064);
 				}
             }
 			fclose(fp);
 			
-			sleep(1);
+//			sleep(1);
 
 			fp = fopen("/sys/power/wait_for_fb_wake", "r");
 	        if ( fp != NULL )
@@ -96,13 +96,15 @@ void *fn_sleep (void *ret)
 		  		sleeping=0;				
 				 write_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor","interactive");
 				 write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","interactive");
-				 set_low_watermark(8);
-				 set_watermark(4064);
+//				 set_low_watermark(8);
+//				 set_watermark(4064);
+				 set_low_watermark(256);
+				 set_watermark(320);				
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
 				 write_file("/proc/sys/vm/dirty_ratio","99");
 				 write_file("/proc/sys/vm/dirty_background_ratio","1");
-//			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
-//			     write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
+			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
+			     write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
             }
 			fclose(fp);
 			
@@ -534,14 +536,16 @@ static void run_daemon(    /* RETURN: nothing   */
 
    int poolsize = get_poolsize();
 
-   if (params->low_water==0) params->low_water=(poolsize-32);
+//   if (params->low_water==0) params->low_water=(poolsize-32);
+   if (params->low_water==0) params->low_water=320;
 
    if (params->low_water>(poolsize-32)) params->low_water=(poolsize-32);
 
    if (params->low_water>0)
       set_watermark(params->low_water);
 
-   set_low_watermark(8);
+//   set_low_watermark(8);
+   set_low_watermark(256);
 
    struct stat status = { 0 };
 
