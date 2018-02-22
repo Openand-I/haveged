@@ -98,7 +98,7 @@ void *fn_sleep (void *ret)
 				 write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","interactive");
 //				 set_low_watermark(8);
 //				 set_watermark(4064);
-				 set_low_watermark(256);
+				 set_low_watermark(8);
 				 set_watermark(320);				
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
 				 write_file("/proc/sys/vm/dirty_ratio","99");
@@ -544,8 +544,8 @@ static void run_daemon(    /* RETURN: nothing   */
    if (params->low_water>0)
       set_watermark(params->low_water);
 
-//   set_low_watermark(8);
-   set_low_watermark(256);
+   set_low_watermark(8);
+//   set_low_watermark(256);
 
    struct stat status = { 0 };
 
