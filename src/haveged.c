@@ -79,8 +79,8 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/dirty_background_ratio","100");
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
-				  set_low_watermark(8);
-				  set_watermark(4064);
+				  set_low_watermark(128);
+				  set_watermark(256);
 				}
             }
 			fclose(fp);
