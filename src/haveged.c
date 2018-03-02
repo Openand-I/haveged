@@ -56,7 +56,7 @@ void *fn_sleep (void *ret)
 {
 		FILE *fp = NULL;
         char buffer='o';
-   nice(5);
+   nice(1);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -77,7 +77,7 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/vfs_cache_pressure","0");
 				  write_file("/proc/sys/vm/dirty_ratio","100");
 				  write_file("/proc/sys/vm/dirty_background_ratio","100");
-				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
+				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
 				  set_low_watermark(128);
 				  set_watermark(256);
@@ -96,14 +96,14 @@ void *fn_sleep (void *ret)
 		  		sleeping=0;				
 				 write_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor","interactive");
 				 write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","interactive");
-//				 set_low_watermark(8);
-//				 set_watermark(4064);
 				 set_low_watermark(8);
-				 set_watermark(320);				
+				 set_watermark(4064);
+//				 set_low_watermark(8);
+//				 set_watermark(320);				
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
 				 write_file("/proc/sys/vm/dirty_ratio","99");
 				 write_file("/proc/sys/vm/dirty_background_ratio","1");
-			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
+			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
 			     write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
             }
 			fclose(fp);
@@ -149,8 +149,8 @@ static struct pparams defaults = {
   .os_rel         = "/proc/sys/kernel/osrelease",
   .pid_file       = PID_DEFAULT,
   .poolsize       = "/proc/sys/kernel/random/poolsize",
-  .random_device  = "/dev/entropy/random",
-//  .random_device  = "/dev/random",
+//  .random_device  = "/dev/entropy/random",
+  .random_device  = "/dev/random",
   .sample_in      = INPUT_DEFAULT,
   .sample_out     = OUTPUT_DEFAULT,
   .verbose        = 0,
@@ -478,7 +478,7 @@ static void daemonize(     /* RETURN: nothing   */
 #ifdef __ANDROID__
    write_file("/proc/%s/oom_adj","-17");
 #endif
-   nice(5);
+   nice(1);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -536,8 +536,8 @@ static void run_daemon(    /* RETURN: nothing   */
 
    int poolsize = get_poolsize();
 
-//   if (params->low_water==0) params->low_water=(poolsize-32);
-   if (params->low_water==0) params->low_water=320;
+   if (params->low_water==0) params->low_water=(poolsize-32);
+//   if (params->low_water==0) params->low_water=320;
 
    if (params->low_water>(poolsize-32)) params->low_water=(poolsize-32);
 
@@ -549,10 +549,10 @@ static void run_daemon(    /* RETURN: nothing   */
 
    struct stat status = { 0 };
 
-   if( stat("/dev/entropy", &status) != 0 ) mkdir( "/dev/entropy", 0770 );
+//   if( stat("/dev/entropy", &status) != 0 ) mkdir( "/dev/entropy", 0770 );
 
    while( stat(params->random_device, &status) != 0 ) { 
-      mknod( params->random_device, S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, makedev(1,8) );
+//      mknod( params->random_device, S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, makedev(1,8) );
       sleep(1);
    } 
 	
@@ -578,7 +578,7 @@ static void run_daemon(    /* RETURN: nothing   */
    FILE *fp=NULL;
 #endif
 
-   nice(5);
+   nice(1);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 	
@@ -592,7 +592,8 @@ static void run_daemon(    /* RETURN: nothing   */
           struct pollfd pfd[1];
           pfd[0].fd=random_fd;pfd[0].revents = 0;pfd[0].events=POLLOUT;      
 		  
-          int ret = poll(pfd, 1, 60000);
+//          int ret = poll(pfd, 1, -1);
+          int ret = poll(pfd, 1, 300000);
 	      if ( ret > 0 && pfd[0].revents & POLLOUT ) { count = 0 ; break; }
 	  }	  	  
 	  	   
@@ -611,7 +612,7 @@ static void run_daemon(    /* RETURN: nothing   */
 //	  fprintf(stderr,"p = %d ; c = %d ; n = %d", poolSize, current, nbytes);
 
 	  nbytes += 1;
-	   
+/*	   
       if ( nbytes < 1 ) { 
 #ifdef __ANDROID__		  
 		if ( sleeping != 1 ) continue; else nbytes = 1;
@@ -619,7 +620,7 @@ static void run_daemon(    /* RETURN: nothing   */
 	    continue;
 #endif			    
 	  }
-	   
+*/	   
       /* get that many random bytes */
       r = (nbytes+sizeof(H_UINT)-1)/sizeof(H_UINT);
       if (havege_rng(h, (H_UINT *)output->buf, r)<1) { 
@@ -642,11 +643,11 @@ static void run_daemon(    /* RETURN: nothing   */
 		  char buffer=fgetc(fp); 
 		} 
 		fclose(fp);
+//	    usleep(10000);
 	}
 #endif
 	  
-	  usleep(10000);
-	   
+/*	   
       count=1;
       for(count=1;count <= 1;count++) {
           struct pollfd pfdout[1];
@@ -655,11 +656,11 @@ static void run_daemon(    /* RETURN: nothing   */
           int ret = poll(pfdout, 1, 60000);
 	      if ( ret > 0 && pfdout[0].revents & POLLOUT ) { count = 0 ; break; }
 	  }	  	  
-	   
+*/	   
       if (ioctl(random_fd, RNDADDENTROPY, output) != 0) 
 		  usleep(1000000);
 	  
-	  usleep(100000); 
+//	  usleep(100000); 
 
     }
 	close(random_fd);
