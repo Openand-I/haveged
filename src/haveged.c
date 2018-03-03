@@ -613,7 +613,7 @@ static void run_daemon(    /* RETURN: nothing   */
 //	  fprintf(stderr,"p = %d ; c = %d ; n = %d", poolSize, current, nbytes);
 
 	  nbytes += 1;
-/*	   
+	   
       if ( nbytes < 1 ) { 
 #ifdef __ANDROID__		  
 		if ( sleeping != 1 ) continue; else nbytes = 1;
@@ -621,7 +621,7 @@ static void run_daemon(    /* RETURN: nothing   */
 	    continue;
 #endif			    
 	  }
-*/	   
+	   
       /* get that many random bytes */
       r = (nbytes+sizeof(H_UINT)-1)/sizeof(H_UINT);
       if (havege_rng(h, (H_UINT *)output->buf, r)<1) { 
