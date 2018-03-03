@@ -97,9 +97,9 @@ void *fn_sleep (void *ret)
 				 write_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor","interactive");
 				 write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","interactive");
 				 set_low_watermark(8);
-				 set_watermark(4064);
+//				 set_watermark(4064);
 //				 set_low_watermark(8);
-//				 set_watermark(320);				
+				 set_watermark(320);				
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
 				 write_file("/proc/sys/vm/dirty_ratio","99");
 				 write_file("/proc/sys/vm/dirty_background_ratio","1");
@@ -536,8 +536,8 @@ static void run_daemon(    /* RETURN: nothing   */
 
    int poolsize = get_poolsize();
 
-   if (params->low_water==0) params->low_water=(poolsize-32);
-//   if (params->low_water==0) params->low_water=320;
+//   if (params->low_water==0) params->low_water=(poolsize-32);
+   if (params->low_water==0) params->low_water=320;
 
    if (params->low_water>(poolsize-32)) params->low_water=(poolsize-32);
 
@@ -607,7 +607,8 @@ static void run_daemon(    /* RETURN: nothing   */
       
 	  /* get number of bytes needed to fill pool */
 
-	  nbytes = (poolSize - current) / 8;
+//	  nbytes = (poolSize - current) / 8;
+	  nbytes = (params->low_water - current) / 8;
 
 //	  fprintf(stderr,"p = %d ; c = %d ; n = %d", poolSize, current, nbytes);
 
