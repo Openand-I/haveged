@@ -56,7 +56,7 @@ void *fn_sleep (void *ret)
 {
 		FILE *fp = NULL;
         char buffer='o';
-   nice(15);
+   nice(1);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -77,15 +77,15 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/vfs_cache_pressure","0");
 				  write_file("/proc/sys/vm/dirty_ratio","100");
 				  write_file("/proc/sys/vm/dirty_background_ratio","100");
-//				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
-//				  write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
-				  set_low_watermark(8);
-				  set_watermark(get_poolsize()-32);
+				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
+				  write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
+				  set_low_watermark(128);
+				  set_watermark(256);
 				}
             }
 			fclose(fp);
 			
-			sleep(1);
+//			sleep(1);
 
 			fp = fopen("/sys/power/wait_for_fb_wake", "r");
 	        if ( fp != NULL )
@@ -97,12 +97,14 @@ void *fn_sleep (void *ret)
 				 write_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor","interactive");
 				 write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","interactive");
 				 set_low_watermark(8);
-				 set_watermark(get_poolsize()-32);
+//				 set_watermark(4064);
+//				 set_low_watermark(8);
+				 set_watermark(320);				
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
 				 write_file("/proc/sys/vm/dirty_ratio","99");
 				 write_file("/proc/sys/vm/dirty_background_ratio","1");
-//			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
-//			     write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
+			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
+			     write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
             }
 			fclose(fp);
 			
@@ -476,7 +478,7 @@ static void daemonize(     /* RETURN: nothing   */
 #ifdef __ANDROID__
    write_file("/proc/%s/oom_adj","-17");
 #endif
-   nice(5);
+   nice(1);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -534,7 +536,8 @@ static void run_daemon(    /* RETURN: nothing   */
 
    int poolsize = get_poolsize();
 
-   if (params->low_water==0) params->low_water=(poolsize-32);
+//   if (params->low_water==0) params->low_water=(poolsize-32);
+   if (params->low_water==0) params->low_water=320;
 
    if (params->low_water>(poolsize-32)) params->low_water=(poolsize-32);
 
@@ -542,15 +545,16 @@ static void run_daemon(    /* RETURN: nothing   */
       set_watermark(params->low_water);
 
    set_low_watermark(8);
+//   set_low_watermark(256);
 
    struct stat status = { 0 };
 
 //   if( stat("/dev/entropy", &status) != 0 ) mkdir( "/dev/entropy", 0770 );
 
    while( stat(params->random_device, &status) != 0 ) { 
-//      mknod( params->random_device, S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP, makedev(1,8) );
+//      mknod( params->random_device, S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, makedev(1,8) );
       sleep(1);
-   }
+   } 
 	
    if ( ( status.st_mode & S_IFMT ) != S_IFCHR ) error_exit("Couldn't open random file \"%s\" for writing: NOT_CHAR_DEVICE",params->random_device);
 	
@@ -564,6 +568,8 @@ static void run_daemon(    /* RETURN: nothing   */
 	   sleep(1);
    }
 
+  fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+		 
   output = (struct rand_pool_info *) h->io_buf;
 
 #ifdef __ANDROID__
@@ -572,7 +578,7 @@ static void run_daemon(    /* RETURN: nothing   */
    FILE *fp=NULL;
 #endif
 
-   nice(15);
+   nice(1);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 	
@@ -586,20 +592,13 @@ static void run_daemon(    /* RETURN: nothing   */
           struct pollfd pfd[1];
           pfd[0].fd=random_fd;pfd[0].revents = 0;pfd[0].events=POLLOUT;      
 		  
-          int ret = poll(pfd, 1, 60000);
+//          int ret = poll(pfd, 1, -1);
+          int ret = poll(pfd, 1, 300000);
 	      if ( ret > 0 && pfd[0].revents & POLLOUT ) { count = 0 ; break; }
 	  }	  	  
-	  
-	  if ( count != 0 ) { 
-		  sleep(1);
-#ifdef __ANDROID__		  
-		  if ( sleeping != 1 ) 
-#endif			  
-			  continue; 
-	  }
-	   
+	  	   
       if (ioctl(random_fd, RNDGETENTCNT, &current) != 0) { 
-		  sleep(1);
+		  usleep(1000000);
 #ifdef __ANDROID__		  
 		  if ( sleeping != 1 ) 
 #endif			  
@@ -608,7 +607,8 @@ static void run_daemon(    /* RETURN: nothing   */
       
 	  /* get number of bytes needed to fill pool */
 
-	  nbytes = (poolSize - current) / 8;
+//	  nbytes = (poolSize - current) / 8;
+	  nbytes = (params->low_water - current) / 8;
 
 //	  fprintf(stderr,"p = %d ; c = %d ; n = %d", poolSize, current, nbytes);
 
@@ -625,7 +625,7 @@ static void run_daemon(    /* RETURN: nothing   */
       /* get that many random bytes */
       r = (nbytes+sizeof(H_UINT)-1)/sizeof(H_UINT);
       if (havege_rng(h, (H_UINT *)output->buf, r)<1) { 
-		  sleep(1); 
+		  usleep(1000000); 
 #ifdef __ANDROID__		  
 		  if ( sleeping != 1 ) 
 #endif			  
@@ -644,10 +644,24 @@ static void run_daemon(    /* RETURN: nothing   */
 		  char buffer=fgetc(fp); 
 		} 
 		fclose(fp);
+//	    usleep(10000);
 	}
 #endif
-	   
-      ioctl(random_fd, RNDADDENTROPY, output);
+	  
+/*	   
+      count=1;
+      for(count=1;count <= 1;count++) {
+          struct pollfd pfdout[1];
+          pfdout[0].fd=random_fd;pfdout[0].revents = 0;pfdout[0].events=POLLOUT;      
+		  
+          int ret = poll(pfdout, 1, 60000);
+	      if ( ret > 0 && pfdout[0].revents & POLLOUT ) { count = 0 ; break; }
+	  }	  	  
+*/	   
+      if (ioctl(random_fd, RNDADDENTROPY, output) != 0) 
+		  usleep(1000000);
+	  
+//	  usleep(100000); 
 
     }
 	close(random_fd);
