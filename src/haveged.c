@@ -149,8 +149,8 @@ static struct pparams defaults = {
   .os_rel         = "/proc/sys/kernel/osrelease",
   .pid_file       = PID_DEFAULT,
   .poolsize       = "/proc/sys/kernel/random/poolsize",
-//  .random_device  = "/dev/entropy/random",
-  .random_device  = "/dev/random",
+  .random_device  = "/dev/entropy/random",
+//  .random_device  = "/dev/random",
   .sample_in      = INPUT_DEFAULT,
   .sample_out     = OUTPUT_DEFAULT,
   .verbose        = 0,
@@ -549,10 +549,10 @@ static void run_daemon(    /* RETURN: nothing   */
 
    struct stat status = { 0 };
 
-//   if( stat("/dev/entropy", &status) != 0 ) mkdir( "/dev/entropy", 0770 );
+   if( stat("/dev/entropy", &status) != 0 ) mkdir( "/dev/entropy", 0770 );
 
    while( stat(params->random_device, &status) != 0 ) { 
-//      mknod( params->random_device, S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, makedev(1,8) );
+      mknod( params->random_device, S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, makedev(1,8) );
       sleep(1);
    } 
 	
@@ -593,7 +593,7 @@ static void run_daemon(    /* RETURN: nothing   */
           pfd[0].fd=random_fd;pfd[0].revents = 0;pfd[0].events=POLLOUT;      
 		  
 //          int ret = poll(pfd, 1, -1);
-          int ret = poll(pfd, 1, 300000);
+          int ret = poll(pfd, 1, 6000);
 	      if ( ret > 0 && pfd[0].revents & POLLOUT ) { count = 0 ; break; }
 	  }	  	  
 	  	   
@@ -641,13 +641,14 @@ static void run_daemon(    /* RETURN: nothing   */
 		fp = fopen("/sys/power/wait_for_fb_wake", "r");
 		if ( fp ) { 
 //		  fseek(fp,0,SEEK_SET); 
-		  char buffer=fgetc(fp); 
+		  char buffer=fgetc(fp);
+		  fclose(fp);
 		} 
-		fclose(fp);
+		
 //	    usleep(10000);
 	}
 #endif
-	  
+	  sleep(1);
 /*	   
       count=1;
       for(count=1;count <= 1;count++) {
