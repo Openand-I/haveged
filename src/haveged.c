@@ -56,7 +56,7 @@ void *fn_sleep (void *ret)
 {
 		FILE *fp = NULL;
         char buffer='o';
-   nice(1);
+   nice(0);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -79,11 +79,12 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/dirty_background_ratio","100");
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
-				  set_low_watermark(128);
+				  set_low_watermark(256);
 				  set_watermark(256);
 				}
             }
-			fclose(fp);
+			
+			if ( fp != NULL ) { fclose(fp); fp = NULL; }
 			
 //			sleep(1);
 
@@ -96,23 +97,24 @@ void *fn_sleep (void *ret)
 		  		sleeping=0;				
 				 write_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor","interactive");
 				 write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","interactive");
-				 set_low_watermark(8);
-//				 set_watermark(4064);
+				 set_low_watermark(4064);
+				 set_watermark(0);
 //				 set_low_watermark(8);
-				 set_watermark(320);				
+//				 set_watermark(320);				
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
 				 write_file("/proc/sys/vm/dirty_ratio","99");
 				 write_file("/proc/sys/vm/dirty_background_ratio","1");
 			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
 			     write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
             }
-			fclose(fp);
+			
+			if ( fp != NULL ) { fclose(fp); fp = NULL; }
 			
 			sleep(1);
 			
         }
 
-    fclose (fp);
+    if ( fp != NULL ) { fclose(fp); fp = NULL; }
 
 	return (NULL);
 }
@@ -478,7 +480,7 @@ static void daemonize(     /* RETURN: nothing   */
 #ifdef __ANDROID__
    write_file("/proc/%s/oom_adj","-17");
 #endif
-   nice(1);
+   nice(0);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -537,15 +539,18 @@ static void run_daemon(    /* RETURN: nothing   */
    int poolsize = get_poolsize();
 
 //   if (params->low_water==0) params->low_water=(poolsize-32);
-   if (params->low_water==0) params->low_water=320;
+//   if (params->low_water==0) params->low_water=320;
 
-   if (params->low_water>(poolsize-32)) params->low_water=(poolsize-32);
+//   if (params->low_water>(poolsize-32)) params->low_water=(poolsize-32);
 
-   if (params->low_water>0)
-      set_watermark(params->low_water);
+//   if (params->low_water>0)
+//      set_watermark(params->low_water);
 
-   set_low_watermark(8);
-//   set_low_watermark(256);
+	set_watermark(0);
+	
+//   set_low_watermark(8);
+//   set_low_watermark(8);
+   set_low_watermark(4064);
 
    struct stat status = { 0 };
 
@@ -578,7 +583,7 @@ static void run_daemon(    /* RETURN: nothing   */
    FILE *fp=NULL;
 #endif
 
-   nice(1);
+   nice(0);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 	
@@ -608,7 +613,8 @@ static void run_daemon(    /* RETURN: nothing   */
 	  /* get number of bytes needed to fill pool */
 
 //	  nbytes = (poolSize - current) / 8;
-	  nbytes = (params->low_water - current) / 8;
+//	  nbytes = (params->low_water - current) / 8;
+	  nbytes = (4064 - current) / 8;
 
 //	  fprintf(stderr,"p = %d ; c = %d ; n = %d", poolSize, current, nbytes);
 
@@ -642,14 +648,14 @@ static void run_daemon(    /* RETURN: nothing   */
 		if ( fp ) { 
 //		  fseek(fp,0,SEEK_SET); 
 		  char buffer=fgetc(fp);
-		  fclose(fp);
 		} 
 		
+		if ( fp != NULL ) { fclose(fp); fp = NULL; }
 //	    usleep(10000);
 	}
 #endif
-	  sleep(1);
-/*	   
+
+	   /*	   
       count=1;
       for(count=1;count <= 1;count++) {
           struct pollfd pfdout[1];
@@ -662,6 +668,8 @@ static void run_daemon(    /* RETURN: nothing   */
       if (ioctl(random_fd, RNDADDENTROPY, output) != 0) 
 		  usleep(1000000);
 	  
+	  sleep(1);
+
 //	  usleep(100000); 
 
     }
