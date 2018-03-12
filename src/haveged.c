@@ -66,7 +66,7 @@ void *fn_sleep (void *ret)
         	if ( fp != NULL )
         	{
 			    buffer='o';
-				fseek ( fp , 0, SEEK_SET );
+//				fseek ( fp , 0, SEEK_SET );
         	    buffer = fgetc(fp);
 				if ( buffer == 's' ) {
 			      sleeping=1;                       
@@ -77,6 +77,8 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/vfs_cache_pressure","0");
 				  write_file("/proc/sys/vm/dirty_ratio","100");
 				  write_file("/proc/sys/vm/dirty_background_ratio","100");
+				  write_file("/proc/sys/vm/overcommit_ratio","48");
+				  write_file("/proc/sys/vm/overcommit_memory","1");					
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
 				  set_low_watermark(256);
@@ -92,24 +94,35 @@ void *fn_sleep (void *ret)
 	        if ( fp != NULL )
         	{
 			    buffer='o';
-				fseek ( fp , 0, SEEK_SET );                        	
+//				fseek ( fp , 0, SEEK_SET );                        	
 	            buffer = fgetc(fp);
 		  		sleeping=0;				
 				 write_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor","interactive");
 				 write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","interactive");
-				 set_low_watermark(4064);
-				 set_watermark(0);
+				 set_low_watermark(4000);
+				 set_watermark(4000);
 //				 set_low_watermark(8);
 //				 set_watermark(320);				
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
 				 write_file("/proc/sys/vm/dirty_ratio","99");
 				 write_file("/proc/sys/vm/dirty_background_ratio","1");
+				 write_file("/proc/sys/vm/overcommit_ratio","49");
+				 write_file("/proc/sys/vm/overcommit_memory","1");					
 			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
 			     write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
             }
 			
 			if ( fp != NULL ) { fclose(fp); fp = NULL; }
-			
+
+			fp = fopen("/dev/random", "r");
+	        if ( fp != NULL )
+        	{
+			    buffer='o';
+	            buffer = fgetc(fp);
+			}
+
+			if ( fp != NULL ) { fclose(fp); fp = NULL; }
+
 			sleep(1);
 			
         }
@@ -546,11 +559,12 @@ static void run_daemon(    /* RETURN: nothing   */
 //   if (params->low_water>0)
 //      set_watermark(params->low_water);
 
-	set_watermark(0);
+//	set_watermark(0);
+	set_watermark(4000);
 	
 //   set_low_watermark(8);
 //   set_low_watermark(8);
-   set_low_watermark(4064);
+   set_low_watermark(4000);
 
    struct stat status = { 0 };
 
@@ -584,7 +598,7 @@ static void run_daemon(    /* RETURN: nothing   */
 #endif
 
    nice(0);
-        
+      
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 	
    int count=0;
@@ -604,38 +618,49 @@ static void run_daemon(    /* RETURN: nothing   */
 	  	   
       if (ioctl(random_fd, RNDGETENTCNT, &current) != 0) { 
 		  usleep(1000000);
-#ifdef __ANDROID__		  
-		  if ( sleeping != 1 ) 
-#endif			  
-		  continue; 
+#ifdef __ANDROID__
+		  if ( sleeping != 1 ) { sleep(1); continue; } 
+#endif
 	  } 
       
 	  /* get number of bytes needed to fill pool */
 
 //	  nbytes = (poolSize - current) / 8;
 //	  nbytes = (params->low_water - current) / 8;
-	  nbytes = (4064 - current) / 8;
+	  nbytes = (4000 - current) / 8;
+
+      if ( nbytes <= -7 ) { 
+		fp = fopen("/dev/random", "r");
+		if ( fp != NULL ) { 
+		  char buffer=fgetc(fp);
+		}
+		if ( fp != NULL ) { fclose(fp); fp = NULL; }
+		continue;
+	  }
+
+      if ( ( nbytes == 0 ) || ( nbytes == 1 ) || ( nbytes == -1 ) ) {
+		sleep(1); 
+		continue; 
+	  }
+
+      if ( nbytes < -1 ) {
+#ifdef __ANDROID__
+		  if ( sleeping != 1 ) { sleep(1); continue; } else nbytes=0; 
+#endif
+	    nbytes=0;
+	  }
 
 //	  fprintf(stderr,"p = %d ; c = %d ; n = %d", poolSize, current, nbytes);
 
 	  nbytes += 1;
-	   
-      if ( nbytes < 1 ) { 
-#ifdef __ANDROID__		  
-		if ( sleeping != 1 ) continue; else nbytes = 1;
-#else
-	    continue;
-#endif			    
-	  }
-	   
+	   	   
       /* get that many random bytes */
       r = (nbytes+sizeof(H_UINT)-1)/sizeof(H_UINT);
       if (havege_rng(h, (H_UINT *)output->buf, r)<1) { 
 		  usleep(1000000); 
-#ifdef __ANDROID__		  
-		  if ( sleeping != 1 ) 
-#endif			  
-		  continue; 
+#ifdef __ANDROID__
+		  if ( sleeping != 1 ) { sleep(1); continue; } 
+#endif
 	  }
 
       output->buf_size = nbytes;
@@ -645,12 +670,11 @@ static void run_daemon(    /* RETURN: nothing   */
 #ifdef __ANDROID__
 	if ( sleeping == 1 ) {
 		fp = fopen("/sys/power/wait_for_fb_wake", "r");
-		if ( fp ) { 
+		if ( fp != NULL ) { 
 //		  fseek(fp,0,SEEK_SET); 
 		  char buffer=fgetc(fp);
 		} 
 		
-		if ( fp != NULL ) { fclose(fp); fp = NULL; }
 //	    usleep(10000);
 	}
 #endif
@@ -667,7 +691,9 @@ static void run_daemon(    /* RETURN: nothing   */
 */	   
       if (ioctl(random_fd, RNDADDENTROPY, output) != 0) 
 		  usleep(1000000);
-	  
+
+	  if ( fp != NULL ) { fclose(fp); fp = NULL; }
+
 	  sleep(1);
 
 //	  usleep(100000); 
