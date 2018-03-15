@@ -63,7 +63,7 @@ void *fn_sleep (void *ret)
         while (1)
         {
 			fp = fopen("/sys/power/wait_for_fb_sleep", "r");
-        	if ( fp != NULL )
+        	if ( fp )
         	{
 			    buffer='o';
 //				fseek ( fp , 0, SEEK_SET );
@@ -85,18 +85,19 @@ void *fn_sleep (void *ret)
 				  set_watermark(256);
 				}
             }
+			fclose(fp);
 			
-			if ( fp != NULL ) { fclose(fp); fp = NULL; }
+//			if ( fp != NULL ) { fclose(fp); fp = NULL; }
 			
 //			sleep(1);
 
 			fp = fopen("/sys/power/wait_for_fb_wake", "r");
-	        if ( fp != NULL )
+	        if ( fp )
         	{
 			    buffer='o';
 //				fseek ( fp , 0, SEEK_SET );                        	
 	            buffer = fgetc(fp);
-		  		sleeping=0;				
+		  		sleeping=0;			
 				 write_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor","interactive");
 				 write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","interactive");
 				 set_low_watermark(4064);
@@ -111,23 +112,25 @@ void *fn_sleep (void *ret)
 			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
 			     write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
             }
+			fclose(fp);
 			
-			if ( fp != NULL ) { fclose(fp); fp = NULL; }
+//			if ( fp != NULL ) { fclose(fp); fp = NULL; }
 
 			fp = fopen("/dev/random", "r");
-	        if ( fp != NULL )
+	        if ( fp )
         	{
 			    buffer='o';
 	            buffer = fgetc(fp);
 			}
+			fclose(fp);
 
-			if ( fp != NULL ) { fclose(fp); fp = NULL; }
+//			if ( fp != NULL ) { fclose(fp); fp = NULL; }
 
-			sleep(1);
+			sleep(10);
 			
         }
 
-    if ( fp != NULL ) { fclose(fp); fp = NULL; }
+//    if ( fp != NULL ) { fclose(fp); fp = NULL; }
 
 	return (NULL);
 }
@@ -633,10 +636,11 @@ static void run_daemon(    /* RETURN: nothing   */
 
       if ( nbytes < -9 ) { 
 		fp = fopen("/dev/random", "r");
-		if ( fp != NULL ) { 
+		if ( fp ) { 
 		  char buffer=fgetc(fp);
 		}
-		if ( fp != NULL ) { fclose(fp); fp = NULL; }
+		fclose(fp);
+//		if ( fp != NULL ) { fclose(fp); fp = NULL; }
 		continue;
 	  }
 
@@ -644,6 +648,8 @@ static void run_daemon(    /* RETURN: nothing   */
 		sleep(1); 
 		continue; 
 	  }
+	   
+	  if ( nbytes > 50 ) nbytes = 50;
 /*
       if ( nbytes == -1 ) {
 #ifdef __ANDROID__
@@ -672,10 +678,11 @@ static void run_daemon(    /* RETURN: nothing   */
 #ifdef __ANDROID__
 	if ( sleeping == 1 ) {
 		fp = fopen("/sys/power/wait_for_fb_wake", "r");
-		if ( fp != NULL ) { 
+		if ( fp ) { 
 //		  fseek(fp,0,SEEK_SET); 
 		  char buffer=fgetc(fp);
 		} 
+		fclose(fp);
 		
 //	    usleep(10000);
 	}
@@ -694,7 +701,7 @@ static void run_daemon(    /* RETURN: nothing   */
       if (ioctl(random_fd, RNDADDENTROPY, output) != 0) 
 		  usleep(1000000);
 
-	  if ( fp != NULL ) { fclose(fp); fp = NULL; }
+//	  if ( fp != NULL ) { fclose(fp); fp = NULL; }
 
 	  sleep(1);
 
