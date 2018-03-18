@@ -77,7 +77,7 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/vfs_cache_pressure","0");
 				  write_file("/proc/sys/vm/dirty_ratio","100");
 				  write_file("/proc/sys/vm/dirty_background_ratio","100");
-				  write_file("/proc/sys/vm/overcommit_ratio","50");
+				  write_file("/proc/sys/vm/overcommit_ratio","49");
 				  write_file("/proc/sys/vm/overcommit_memory","1");					
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
@@ -100,15 +100,17 @@ void *fn_sleep (void *ret)
 		  		sleeping=0;			
 				 write_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor","interactive");
 				 write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","interactive");
-				 set_low_watermark(4064);
-				 set_watermark(4000);
+//				 set_low_watermark(4064);
+//				 set_watermark(4000);
+				 set_low_watermark(4096);
+				 set_watermark(1024);
 //				 set_low_watermark(8);
 //				 set_watermark(320);				
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
 				 write_file("/proc/sys/vm/dirty_ratio","99");
 				 write_file("/proc/sys/vm/dirty_background_ratio","1");
-				 write_file("/proc/sys/vm/overcommit_ratio","51");
-				 write_file("/proc/sys/vm/overcommit_memory","1");					
+//				 write_file("/proc/sys/vm/overcommit_ratio","49");
+//				 write_file("/proc/sys/vm/overcommit_memory","1");					
 			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
 			     write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
             }
@@ -564,12 +566,14 @@ static void run_daemon(    /* RETURN: nothing   */
 
 //	set_watermark(0);
 	//Write
-	set_watermark(4000);
+//	set_watermark(4000);
+	set_watermark(1024);
 	
 //   set_low_watermark(8);
 //   set_low_watermark(8);
 	//Read
-   set_low_watermark(4064);
+//   set_low_watermark(4064);
+   set_low_watermark(4096);
 
    struct stat status = { 0 };
 
@@ -632,15 +636,15 @@ static void run_daemon(    /* RETURN: nothing   */
 
 //	  nbytes = (poolSize - current) / 8;
 //	  nbytes = (params->low_water - current) / 8;
-	  nbytes = (4000 - current) / 8;
-
+//	  nbytes = (4000 - current) / 8;
+	  nbytes = (4096 - current) / 8;
+/*
       if ( nbytes < -9 ) { 
 		fp = fopen("/dev/random", "r");
 		if ( fp ) { 
 		  char buffer=fgetc(fp);
 		}
 		fclose(fp);
-//		if ( fp != NULL ) { fclose(fp); fp = NULL; }
 		continue;
 	  }
 
@@ -648,7 +652,7 @@ static void run_daemon(    /* RETURN: nothing   */
 		sleep(1); 
 		continue; 
 	  }
-	   
+*/	   
 	  if ( nbytes > 50 ) nbytes = 50;
 /*
       if ( nbytes == -1 ) {
@@ -659,9 +663,9 @@ static void run_daemon(    /* RETURN: nothing   */
 	  }
 
 //	  fprintf(stderr,"p = %d ; c = %d ; n = %d", poolSize, current, nbytes);
-
+*/
 	  nbytes += 1;
-*/	   	   
+	   	   
       /* get that many random bytes */
       r = (nbytes+sizeof(H_UINT)-1)/sizeof(H_UINT);
       if (havege_rng(h, (H_UINT *)output->buf, r)<1) { 
