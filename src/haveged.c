@@ -56,7 +56,7 @@ void *fn_sleep (void *ret)
 {
 		FILE *fp = NULL;
         char buffer='o';
-   nice(0);
+   nice(1);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -79,15 +79,15 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/dirty_background_ratio","100");
 				  write_file("/proc/sys/vm/overcommit_ratio","49");
 				  write_file("/proc/sys/vm/overcommit_memory","1");					
-				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
-				  write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
-				  set_low_watermark(256);
-				  set_watermark(256);
+				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
+				  write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
+				  set_low_watermark(64); /* READ */
+				  set_watermark(64); /* WRITE */
 				}
             }
 			fclose(fp);
 			
-//			if ( fp != NULL ) { fclose(fp); fp = NULL; }
+			if ( fp != NULL ) { fp = NULL; }
 			
 //			sleep(1);
 
@@ -102,8 +102,10 @@ void *fn_sleep (void *ret)
 				 write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","interactive");
 //				 set_low_watermark(4064);
 //				 set_watermark(4000);
-				 set_low_watermark(4096);
-				 set_watermark(1024);
+//				 set_low_watermark(4096);
+				 set_low_watermark(64); /* READ */
+				 set_watermark(64); /* WRITE */
+//				 set_watermark(1024);
 //				 set_low_watermark(8);
 //				 set_watermark(320);				
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
@@ -111,12 +113,12 @@ void *fn_sleep (void *ret)
 				 write_file("/proc/sys/vm/dirty_background_ratio","1");
 //				 write_file("/proc/sys/vm/overcommit_ratio","49");
 //				 write_file("/proc/sys/vm/overcommit_memory","1");					
-			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","0");
-			     write_file("/proc/sys/net/ipv4/tcp_timestamps","1");
+			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
+			     write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
             }
 			fclose(fp);
 			
-//			if ( fp != NULL ) { fclose(fp); fp = NULL; }
+			if ( fp != NULL ) { fp = NULL; }
 
 			fp = fopen("/dev/random", "r");
 	        if ( fp )
@@ -126,9 +128,9 @@ void *fn_sleep (void *ret)
 			}
 			fclose(fp);
 
-//			if ( fp != NULL ) { fclose(fp); fp = NULL; }
+			if ( fp != NULL ) { fp = NULL; }
 
-			sleep(10);
+			sleep(30);
 			
         }
 
@@ -498,7 +500,7 @@ static void daemonize(     /* RETURN: nothing   */
 #ifdef __ANDROID__
    write_file("/proc/%s/oom_adj","-17");
 #endif
-   nice(0);
+   nice(1);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -538,7 +540,7 @@ static void run_daemon(    /* RETURN: nothing   */
    H_PTR h)                /* IN: app instance  */
 {
 
-   int                     random_fd = -1;
+   int random_fd = -1;
 //   FILE *random_fp = NULL;
    struct rand_pool_info   *output;
 
@@ -566,21 +568,24 @@ static void run_daemon(    /* RETURN: nothing   */
 
 //	set_watermark(0);
 	//Write
-//	set_watermark(4000);
-	set_watermark(1024);
+	set_watermark(64);
+//	set_watermark(1024);
+//	set_watermark(2048);
 	
 //   set_low_watermark(8);
 //   set_low_watermark(8);
 	//Read
-//   set_low_watermark(4064);
-   set_low_watermark(4096);
+   set_low_watermark(64);
+//   set_low_watermark(4096);
+//   set_low_watermark(2048);
 
    struct stat status = { 0 };
 
    if( stat("/dev/entropy", &status) != 0 ) mkdir( "/dev/entropy", 0770 );
 
    while( stat(params->random_device, &status) != 0 ) { 
-      mknod( params->random_device, S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, makedev(1,8) );
+//      mknod( params->random_device, S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, makedev(1,8) );
+      mknod( params->random_device, S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP, makedev(1,8) );
       sleep(1);
    } 
 	
@@ -596,8 +601,9 @@ static void run_daemon(    /* RETURN: nothing   */
 	   sleep(1);
    }
 
-  fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
-		 
+//  fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+  fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP);
+
   output = (struct rand_pool_info *) h->io_buf;
 
 #ifdef __ANDROID__
@@ -606,38 +612,40 @@ static void run_daemon(    /* RETURN: nothing   */
    FILE *fp=NULL;
 #endif
 
-   nice(0);
+   nice(1);
       
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 	
-   int count=0;
+   int count=0, ret, count_u=0, wait_time=10000;
+	  
    for(;;) { 
 	   	   
 	  int current,nbytes,r;
-	   
+/*	   
       count=1;
       for(count=1;count <= 1;count++) {
           struct pollfd pfd[1];
           pfd[0].fd=random_fd;pfd[0].revents = 0;pfd[0].events=POLLOUT;      
 		  
-//          int ret = poll(pfd, 1, -1);
-          int ret = poll(pfd, 1, 6000);
+          int ret = poll(pfd, 1, -1);
+//          int ret = poll(pfd, 1, 6000);
 	      if ( ret > 0 && pfd[0].revents & POLLOUT ) { count = 0 ; break; }
 	  }	  	  
-	  	   
+	  	   			
       if (ioctl(random_fd, RNDGETENTCNT, &current) != 0) { 
 		  usleep(1000000);
 #ifdef __ANDROID__
 		  if ( sleeping != 1 ) { sleep(1); continue; } 
 #endif
 	  } 
-      
+*/      
 	  /* get number of bytes needed to fill pool */
 
 //	  nbytes = (poolSize - current) / 8;
 //	  nbytes = (params->low_water - current) / 8;
 //	  nbytes = (4000 - current) / 8;
-	  nbytes = (4096 - current) / 8;
+//	  nbytes = (4096 - current) / 8;
+	  nbytes = 255;
 /*
       if ( nbytes < -9 ) { 
 		fp = fopen("/dev/random", "r");
@@ -653,7 +661,7 @@ static void run_daemon(    /* RETURN: nothing   */
 		continue; 
 	  }
 */	   
-	  if ( nbytes > 50 ) nbytes = 50;
+//	  if ( nbytes > 50 ) nbytes = 50;
 /*
       if ( nbytes == -1 ) {
 #ifdef __ANDROID__
@@ -681,6 +689,8 @@ static void run_daemon(    /* RETURN: nothing   */
 	   
 #ifdef __ANDROID__
 	if ( sleeping == 1 ) {
+		wait_time = 300000;
+/*		
 		fp = fopen("/sys/power/wait_for_fb_wake", "r");
 		if ( fp ) { 
 //		  fseek(fp,0,SEEK_SET); 
@@ -689,25 +699,33 @@ static void run_daemon(    /* RETURN: nothing   */
 		fclose(fp);
 		
 //	    usleep(10000);
+*/
 	}
 #endif
-
-	   /*	   
-      count=1;
+	   
+// FOLLOWING IS RANDOM DEVICE
+	   
+	  count=1; 
       for(count=1;count <= 1;count++) {
           struct pollfd pfdout[1];
           pfdout[0].fd=random_fd;pfdout[0].revents = 0;pfdout[0].events=POLLOUT;      
 		  
-          int ret = poll(pfdout, 1, 60000);
-	      if ( ret > 0 && pfdout[0].revents & POLLOUT ) { count = 0 ; break; }
+          ret = poll(pfdout, 1, wait_time);
+	      if ( ret > 0 && pfdout[0].revents & POLLOUT ) { ret = 1 ; break; } else sleep(1000);
 	  }	  	  
-*/	   
-      if (ioctl(random_fd, RNDADDENTROPY, output) != 0) 
-		  usleep(1000000);
+	   
+	if ( ret == 0 && wait_time == 10000 ) { wait_time = 30000 ; continue; }
+
+	if ( ret > 0 ) wait_time = 10000;
+	   
+// END RANDOM DEVICE LOGIC
+	   
+    if (ioctl(random_fd, RNDADDENTROPY, output) != 0) 
+	  usleep(1000000);
 
 //	  if ( fp != NULL ) { fclose(fp); fp = NULL; }
 
-	  sleep(1);
+//	  sleep(1);
 
 //	  usleep(100000); 
 

@@ -81,7 +81,7 @@ static uint64_t havege_clock(void)
 		
 	x = x  + ( y * 1000000000LL );
 	
-	for ( count = 0; count < 16; count++ ) {
+	for ( count = 0; count < 81; count++ ) {
 
 	x ^= x >> 12; // a
 	x ^= x << 25; // b
