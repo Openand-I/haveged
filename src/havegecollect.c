@@ -82,13 +82,19 @@ static uint64_t havege_clock(void)
 	x = x  + ( y * 1000000000LL );
 	
 	for ( count = 0; count < 81; count++ ) {
-
-	x ^= x >> 12; // a
-	x ^= x << 25; // b
-	x ^= x >> 27; // c
 		
-	x = x * UINT64_C(2685821657736338717);
+    if ( init <= 5 ) { 
+		if ( ( count > 63 )  && ( count/2 == 0 ) && ( init/2 == 1 ) ) continue;
+	} else init = 2;
 		
+// "Or something"		
+		
+		x ^= x >> 12; // a
+		x ^= x << 25; // b
+		x ^= x >> 27; // c
+		
+		x = x * UINT64_C(2685821657736338717);
+	
 //fprintf(stderr,"x = %llu ; y = %llu ; z = %llu ; w = %llu", x, y, z, w);	
 	}	
 
