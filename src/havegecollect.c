@@ -81,12 +81,12 @@ static uint64_t havege_clock(void)
 		
 	x = x  + ( y * 1000000000LL );
 	
-	for ( count = 0; count < 81; count++ ) {
-		
+	for ( count = 0; count <= 1; count++ ) {
+/*		
     if ( init <= 5 ) { 
 		if ( ( count > 63 )  && ( count/2 == 0 ) && ( init/2 == 1 ) ) continue;
 	} else init = 2;
-		
+*/		
 // "Or something"		
 		
 		x ^= x >> 12; // a

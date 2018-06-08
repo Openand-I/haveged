@@ -56,7 +56,7 @@ void *fn_sleep (void *ret)
 {
 		FILE *fp = NULL;
         char buffer='o';
-   nice(1);
+   nice(5);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -81,8 +81,8 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/overcommit_memory","1");					
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
-				  set_low_watermark(64); /* READ */
-				  set_watermark(64); /* WRITE */
+				  set_low_watermark(4000); /* READ */
+				  set_watermark(4000); /* WRITE */
 				}
             }
 			fclose(fp);
@@ -103,8 +103,8 @@ void *fn_sleep (void *ret)
 //				 set_low_watermark(4064);
 //				 set_watermark(4000);
 //				 set_low_watermark(4096);
-				 set_low_watermark(64); /* READ */
-				 set_watermark(64); /* WRITE */
+				 set_low_watermark(4000); /* READ */
+				 set_watermark(2000); /* WRITE */
 //				 set_watermark(1024);
 //				 set_low_watermark(8);
 //				 set_watermark(320);				
@@ -500,7 +500,7 @@ static void daemonize(     /* RETURN: nothing   */
 #ifdef __ANDROID__
    write_file("/proc/%s/oom_adj","-17");
 #endif
-   nice(1);
+   nice(5);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -568,14 +568,15 @@ static void run_daemon(    /* RETURN: nothing   */
 
 //	set_watermark(0);
 	//Write
-	set_watermark(64);
+	set_watermark(2000);
 //	set_watermark(1024);
 //	set_watermark(2048);
 	
 //   set_low_watermark(8);
 //   set_low_watermark(8);
 	//Read
-   set_low_watermark(64);
+//   set_low_watermark(512);
+   set_low_watermark(4000);
 //   set_low_watermark(4096);
 //   set_low_watermark(2048);
 
@@ -601,7 +602,7 @@ static void run_daemon(    /* RETURN: nothing   */
 	   sleep(1);
    }
 
-//  fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+//   fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
   fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP);
 
   output = (struct rand_pool_info *) h->io_buf;
@@ -612,7 +613,7 @@ static void run_daemon(    /* RETURN: nothing   */
    FILE *fp=NULL;
 #endif
 
-   nice(1);
+   nice(5);
       
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 	
@@ -645,7 +646,8 @@ static void run_daemon(    /* RETURN: nothing   */
 //	  nbytes = (params->low_water - current) / 8;
 //	  nbytes = (4000 - current) / 8;
 //	  nbytes = (4096 - current) / 8;
-	  nbytes = 255;
+//	  nbytes = 3;
+	  nbytes = 11;
 /*
       if ( nbytes < -9 ) { 
 		fp = fopen("/dev/random", "r");
@@ -686,25 +688,31 @@ static void run_daemon(    /* RETURN: nothing   */
       output->buf_size = nbytes;
       /* entropy is 8 bits per byte */
       output->entropy_count = nbytes * 8;
+
+	  struct timeval timeout;
+	   
+	  timeout.tv_sec = 30;
+      timeout.tv_usec = 0;
 	   
 #ifdef __ANDROID__
-	if ( sleeping == 1 ) {
+	   if ( sleeping == 1 ) {
 		wait_time = 300000;
-/*		
+	  
+		timeout.tv_sec = 300;
+		
 		fp = fopen("/sys/power/wait_for_fb_wake", "r");
 		if ( fp ) { 
-//		  fseek(fp,0,SEEK_SET); 
 		  char buffer=fgetc(fp);
 		} 
 		fclose(fp);
 		
 //	    usleep(10000);
-*/
-	}
+
+	} else timeout.tv_sec = 30;
 #endif
 	   
 // FOLLOWING IS RANDOM DEVICE
-	   
+/*	   
 	  count=1; 
       for(count=1;count <= 1;count++) {
           struct pollfd pfdout[1];
@@ -717,8 +725,28 @@ static void run_daemon(    /* RETURN: nothing   */
 	if ( ret == 0 && wait_time == 10000 ) { wait_time = 30000 ; continue; }
 
 	if ( ret > 0 ) wait_time = 10000;
-	   
+*/	   
 // END RANDOM DEVICE LOGIC
+
+// BEGIN SELECT LOGIC
+	   
+      fd_set write_fd;
+      FD_ZERO(&write_fd);
+      FD_SET(random_fd, &write_fd);
+	  
+	   
+//      for(;;)  {
+	  count=1; 
+      for(count=1;count <= 1;count++) {
+
+//         int rc = select(random_fd+1, NULL, &write_fd, NULL, NULL);
+         int rc = select(random_fd+1, NULL, &write_fd, NULL, &timeout);
+         if (rc >= 0) break;
+//         if (errno != EINTR)
+//            error_exit("Select error: %s", strerror(errno));
+         }
+
+// END SELECT LOGIC
 	   
     if (ioctl(random_fd, RNDADDENTROPY, output) != 0) 
 	  usleep(1000000);
