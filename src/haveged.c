@@ -160,7 +160,7 @@ void *fn_sleep (void *ret)
 {
 		FILE *fp = NULL;
         char buffer='o';
-   nice(5);
+   nice(0);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -187,8 +187,8 @@ void *fn_sleep (void *ret)
 				  set_watermark(4000); /* WRITE */
 				  governor_ondemand();
 				}
-            }
 			fclose(fp);
+            }
 			
 			if ( fp != NULL ) { fp = NULL; }
 			
@@ -217,8 +217,8 @@ void *fn_sleep (void *ret)
 //				 write_file("/proc/sys/vm/overcommit_memory","1");					
 			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
 			     write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
-            }
 			fclose(fp);
+            }
 			
 			if ( fp != NULL ) { fp = NULL; }
 
@@ -227,8 +227,8 @@ void *fn_sleep (void *ret)
         	{
 			    buffer='o';
 	            buffer = fgetc(fp);
-			}
 			fclose(fp);
+			}
 
 			if ( fp != NULL ) { fp = NULL; }
 
@@ -602,7 +602,7 @@ static void daemonize(     /* RETURN: nothing   */
 #ifdef __ANDROID__
    write_file("/proc/%s/oom_adj","-17");
 #endif
-   nice(5);
+   nice(0);
         
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
@@ -700,7 +700,7 @@ static void run_daemon(    /* RETURN: nothing   */
    while ( random_fd < 0 ) {
        random_fd = open(params->random_device, O_RDWR); 
 	   if ( random_fd >= 0 ) break;
-       close(random_fd);
+//       close(random_fd);
 	   sleep(1);
    }
 
@@ -715,11 +715,11 @@ static void run_daemon(    /* RETURN: nothing   */
    FILE *fp=NULL;
 #endif
 
-   nice(5);
+   nice(0);
       
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 	
-   int count=0, ret, count_u=0, wait_time=10000;
+   int count=0; int wait_time=10000;
 	  
    for(;;) { 
 	   	   
@@ -798,16 +798,20 @@ static void run_daemon(    /* RETURN: nothing   */
 	   
 #ifdef __ANDROID__
 	   if ( sleeping == 1 ) {
-		wait_time = 300000;
+		wait_time = 30000;
 	  
 		timeout.tv_sec = 300;
 		
+		if ( fp != NULL ) { fp = NULL; }
+
 		fp = fopen("/sys/power/wait_for_fb_wake", "r");
 		if ( fp ) { 
 		  char buffer=fgetc(fp);
+		  fclose(fp);
 		} 
-		fclose(fp);
 		
+		if ( fp != NULL ) { fp = NULL; }
+
 //	    usleep(10000);
 
 	} else timeout.tv_sec = 30;
@@ -844,6 +848,23 @@ static void run_daemon(    /* RETURN: nothing   */
          int rc = select(random_fd+1, NULL, &write_fd, NULL, &timeout);
          if (rc >= 0) break;
 //         if (errno != EINTR)
+/*		  
+#ifdef __ANDROID__
+         if ( ( rc > 0 ) && ( sleeping != 1 ) ) 
+		   {
+			if ( fp != NULL ) { fp = NULL; }
+
+			fp = fopen("/dev/random", "r");
+	        if ( fp )
+        	{
+	            char buffer = fgetc(fp);
+			fclose(fp);
+			}
+
+			if ( fp != NULL ) { fp = NULL; }
+		   }
+#endif
+*/
 //            error_exit("Select error: %s", strerror(errno));
          }
 
