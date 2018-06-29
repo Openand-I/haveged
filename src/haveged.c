@@ -801,7 +801,7 @@ static void run_daemon(    /* RETURN: nothing   */
 		wait_time = 30000;
 	  
 		timeout.tv_sec = 300;
-		
+/*		
 		if ( fp != NULL ) { fp = NULL; }
 
 		fp = fopen("/sys/power/wait_for_fb_wake", "r");
@@ -811,7 +811,7 @@ static void run_daemon(    /* RETURN: nothing   */
 		} 
 		
 		if ( fp != NULL ) { fp = NULL; }
-
+*/
 //	    usleep(10000);
 
 	} else timeout.tv_sec = 30;

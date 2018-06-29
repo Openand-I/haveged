@@ -68,25 +68,37 @@ static uint64_t havege_clock(void)
 {
 	unsigned int count = 0;
     static int init = 0;
+	static int z=0;
 	
 	if ( init == 0 ) {
 //		set_S_0();
 //		x = 22337203685;
 //		y = 74586302733;
+
+		for ( count = 1; count <= 4; count++ )
+		  srandom(random());
+		
 		x = random();
 		y = random();
+
+		z = ( random() * 16 ) / RAND_MAX;
 	}
+	
+	if ( z <= 0 ) z=16;
+	
+	if ( z > 16 ) z=16;
 	
 	init++;
 		
 	x = x  + ( y * 1000000000LL );
 	
-	for ( count = 0; count <= 1; count++ ) {
-/*		
+	for ( count = 1; count <= ( 16 + z ) ; count++ ) {
+		
     if ( init <= 5 ) { 
-		if ( ( count > 63 )  && ( count/2 == 0 ) && ( init/2 == 1 ) ) continue;
+		if ( count == ( 8 + z ) ) continue; 
+//		if ( ( count > 64 ) && ( ( count / 2 ) == 1 ) && ( ( init / 2 ) == 1 ) ) continue;
 	} else init = 2;
-*/		
+		
 // "Or something"		
 		
 		x ^= x >> 12; // a
