@@ -758,7 +758,7 @@ static void run_daemon(    /* RETURN: nothing   */
 //	  nbytes = (params->low_water - current) / 8;
 //	  nbytes = (4000 - current) / 8;
 //	  nbytes = (4096 - current) / 8;
-	  nbytes = 0;
+	  nbytes = 4;
 //	  nbytes = 11;
 /*
       if ( nbytes < -9 ) { 
