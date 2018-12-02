@@ -193,8 +193,8 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/overcommit_memory","1");					
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
-				  set_low_watermark(256); /* READ */
-				  set_watermark(320); /* WRITE */
+				  set_low_watermark(3584); /* READ */
+				  set_watermark(3584); /* WRITE */
 				  governor_ondemand();
 				}
 			fclose(fp);
@@ -211,8 +211,8 @@ void *fn_sleep (void *ret)
 //				fseek ( fp , 0, SEEK_SET );                        	
 	            buffer = fgetc(fp);
 		  		sleeping=0;			
-				 set_low_watermark(320); /* READ */
-				 set_watermark(320); /* WRITE */
+				 set_low_watermark(3584); /* READ */
+				 set_watermark(3584); /* WRITE */
 				 governor_interactive();
 //				 set_low_watermark(4064);
 //				 set_watermark(4000);
@@ -681,7 +681,7 @@ static void run_daemon(    /* RETURN: nothing   */
 
 //	set_watermark(0);
 	//Write
-	set_watermark(320);
+	set_watermark(3584);
 //	set_watermark(1024);
 //	set_watermark(2048);
 	
@@ -689,7 +689,7 @@ static void run_daemon(    /* RETURN: nothing   */
 //   set_low_watermark(8);
 	//Read
 //   set_low_watermark(512);
-   set_low_watermark(320);
+   set_low_watermark(3584);
 //   set_low_watermark(4096);
 //   set_low_watermark(2048);
 
@@ -853,8 +853,8 @@ static void run_daemon(    /* RETURN: nothing   */
 	   
       for(;;)  {
 
-//         int rc = select(random_fd+1, NULL, &write_fd, NULL, NULL);
-         int rc = select(random_fd+1, NULL, &write_fd, NULL, &timeout);
+         int rc = select(random_fd+1, NULL, &write_fd, NULL, NULL);
+//         int rc = select(random_fd+1, NULL, &write_fd, NULL, &timeout);
          if ( rc > 0 ) break;
 		 if ( ( rc == 0 ) && ( sleeping == 1 ) ) continue; 
          if (errno != EINTR)
@@ -862,6 +862,8 @@ static void run_daemon(    /* RETURN: nothing   */
 			 goto carry_on;
          }
 
+	   current=0;
+	   if (ioctl(random_fd, RNDGETENTCNT, &current) == 0) if ( current > 3584 ) goto carry_on;
 // END SELECT LOGIC
 
     if (ioctl(random_fd, RNDADDENTROPY, output) != 0) 
