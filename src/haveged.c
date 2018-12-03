@@ -810,7 +810,9 @@ static void run_daemon(    /* RETURN: nothing   */
 	   if ( sleeping == 1 ) {
 		wait_time = 30000;
 	  
-		timeout.tv_sec = 900;
+	  timeout.tv_sec = 900;
+      timeout.tv_usec = 0;
+
 /*		
 		if ( fp != NULL ) { fp = NULL; }
 
@@ -824,7 +826,10 @@ static void run_daemon(    /* RETURN: nothing   */
 */
 //	    usleep(10000);
 
-	} else timeout.tv_sec = 30;
+	} else {		   
+		   timeout.tv_sec = 30;
+		   timeout.tv_usec = 0;
+	}
 #endif
 
 /*	   
@@ -853,8 +858,8 @@ static void run_daemon(    /* RETURN: nothing   */
 	   
       for(;;)  {
 
-         int rc = select(random_fd+1, NULL, &write_fd, NULL, NULL);
-//         int rc = select(random_fd+1, NULL, &write_fd, NULL, &timeout);
+//         int rc = select(random_fd+1, NULL, &write_fd, NULL, NULL);
+         int rc = select(random_fd+1, NULL, &write_fd, NULL, &timeout);
          if ( rc > 0 ) break;
 		 if ( ( rc == 0 ) && ( sleeping == 1 ) ) continue; 
          if (errno != EINTR)
