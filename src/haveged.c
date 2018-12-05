@@ -193,14 +193,14 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/overcommit_memory","1");					
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
-				  set_low_watermark(3584); /* READ */
-				  set_watermark(3584); /* WRITE */
+				  set_low_watermark(256); /* READ */
+				  set_watermark(256); /* WRITE */
 				  governor_ondemand();
 				}
 			fclose(fp);
             }
 			
-			if ( fp != NULL ) { fp = NULL; }
+//			if ( fp != NULL ) { fp = NULL; }
 			
 //			sleep(1);
 
@@ -232,8 +232,8 @@ void *fn_sleep (void *ret)
 			fclose(fp);
             }
 			
-			if ( fp != NULL ) { fp = NULL; }
-/*
+//			if ( fp != NULL ) { fp = NULL; }
+
 			fp = fopen("/dev/random", "r");
 	        if ( fp )
         	{
@@ -242,8 +242,8 @@ void *fn_sleep (void *ret)
 			fclose(fp);
 			}
 
-			if ( fp != NULL ) { fp = NULL; }
-*/
+//			if ( fp != NULL ) { fp = NULL; }
+
 			sleep(30);
 			
         }
@@ -681,6 +681,7 @@ static void run_daemon(    /* RETURN: nothing   */
 
 //	set_watermark(0);
 	//Write
+	int threshold = 3584;
 	set_watermark(3584);
 //	set_watermark(1024);
 //	set_watermark(2048);
@@ -758,15 +759,15 @@ static void run_daemon(    /* RETURN: nothing   */
 //	  nbytes = (params->low_water - current) / 8;
 //	  nbytes = (4000 - current) / 8;
 //	  nbytes = (4096 - current) / 8;
-	  nbytes = 4;
+	  nbytes = 3;
 //	  nbytes = 11;
 /*
       if ( nbytes < -9 ) { 
 		fp = fopen("/dev/random", "r");
 		if ( fp ) { 
 		  char buffer=fgetc(fp);
-		}
 		fclose(fp);
+		}
 		continue;
 	  }
 
@@ -803,16 +804,18 @@ static void run_daemon(    /* RETURN: nothing   */
 
 	  struct timeval timeout;
 	   
-	  timeout.tv_sec = 30;
-      timeout.tv_usec = 0;
+	  timeout.tv_sec = 0;
+      timeout.tv_usec = 200000;
 	   
+	  threshold = 3584;
 #ifdef __ANDROID__
 	   if ( sleeping == 1 ) {
 		wait_time = 30000;
 	  
-	  timeout.tv_sec = 900;
+	  timeout.tv_sec = 300;
       timeout.tv_usec = 0;
-
+		
+		   threshold=256;
 /*		
 		if ( fp != NULL ) { fp = NULL; }
 
@@ -827,8 +830,8 @@ static void run_daemon(    /* RETURN: nothing   */
 //	    usleep(10000);
 
 	} else {		   
-		   timeout.tv_sec = 30;
-		   timeout.tv_usec = 0;
+		   timeout.tv_sec = 0;
+		   timeout.tv_usec = 200000;
 	}
 #endif
 
@@ -868,7 +871,18 @@ static void run_daemon(    /* RETURN: nothing   */
          }
 
 	   current=0;
-	   if (ioctl(random_fd, RNDGETENTCNT, &current) == 0) if ( current > 3584 ) goto carry_on;
+	   if (ioctl(random_fd, RNDGETENTCNT, &current) == 0) {
+		  if ( current > ( threshold + 400 ) ) {
+				fp = fopen("/dev/random", "r");
+				if ( fp ) { 
+				  char buffer=fgetc(fp);
+				fclose(fp);
+				}
+				continue;
+			  }
+			  			  
+		   if ( current > threshold ) continue;
+	   }
 // END SELECT LOGIC
 
     if (ioctl(random_fd, RNDADDENTROPY, output) != 0) 
