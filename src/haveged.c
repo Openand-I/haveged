@@ -759,7 +759,7 @@ static void run_daemon(    /* RETURN: nothing   */
 //	  nbytes = (params->low_water - current) / 8;
 //	  nbytes = (4000 - current) / 8;
 //	  nbytes = (4096 - current) / 8;
-	  nbytes = 3;
+	  nbytes = 1;
 //	  nbytes = 11;
 /*
       if ( nbytes < -9 ) { 
@@ -805,7 +805,8 @@ static void run_daemon(    /* RETURN: nothing   */
 	  struct timeval timeout;
 	   
 	  timeout.tv_sec = 0;
-      timeout.tv_usec = 200000;
+//      timeout.tv_usec = 0;
+      timeout.tv_usec = 333333;
 	   
 	  threshold = 3584;
 #ifdef __ANDROID__
@@ -831,7 +832,8 @@ static void run_daemon(    /* RETURN: nothing   */
 
 	} else {		   
 		   timeout.tv_sec = 0;
-		   timeout.tv_usec = 200000;
+//		   timeout.tv_usec = 0;
+		   timeout.tv_usec = 333333;
 	}
 #endif
 
