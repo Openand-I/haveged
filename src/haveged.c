@@ -813,7 +813,8 @@ static void run_daemon(    /* RETURN: nothing   */
 	   if ( sleeping == 1 ) {
 		wait_time = 30000;
 	  
-	  timeout.tv_sec = 300;
+//	  timeout.tv_sec = 300;
+	  timeout.tv_sec = 1;
       timeout.tv_usec = 0;
 		
 		   threshold=256;
@@ -874,6 +875,7 @@ static void run_daemon(    /* RETURN: nothing   */
 
 	   current=0;
 	   if (ioctl(random_fd, RNDGETENTCNT, &current) == 0) {
+		   /*
 		  if ( current > ( threshold + 400 ) ) {
 				fp = fopen("/dev/random", "r");
 				if ( fp ) { 
@@ -882,7 +884,7 @@ static void run_daemon(    /* RETURN: nothing   */
 				}
 				continue;
 			  }
-			  			  
+			  			  */
 		   if ( current > threshold ) continue;
 	   }
 // END SELECT LOGIC
