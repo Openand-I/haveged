@@ -112,8 +112,8 @@ void governor_interactive()
 
 //				 system("/system/bin/setprop debug.composition.type dyn");
 //				 system("/system/bin/setprop persist.sys.composition.type dyn");
-				 system("/system/bin/setprop debug.composition.type cpu");
-				 system("/system/bin/setprop persist.sys.composition.type cpu");
+				 system("/system/bin/setprop debug.composition.type gpu");
+				 system("/system/bin/setprop persist.sys.composition.type gpu");
 
 int i = 0 ;
 char string1[80];
@@ -193,8 +193,8 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/overcommit_memory","1");					
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
-				  set_low_watermark(256); /* READ */
-				  set_watermark(256); /* WRITE */
+				  set_low_watermark(3584); /* READ */
+				  set_watermark(3584); /* WRITE */
 				  governor_ondemand();
 				}
 			fclose(fp);
@@ -233,7 +233,7 @@ void *fn_sleep (void *ret)
             }
 			
 //			if ( fp != NULL ) { fp = NULL; }
-
+/*
 			fp = fopen("/dev/random", "r");
 	        if ( fp )
         	{
@@ -241,7 +241,7 @@ void *fn_sleep (void *ret)
 	            buffer = fgetc(fp);
 			fclose(fp);
 			}
-
+*/
 //			if ( fp != NULL ) { fp = NULL; }
 
 			sleep(30);
@@ -285,8 +285,8 @@ static struct pparams defaults = {
   .os_rel         = "/proc/sys/kernel/osrelease",
   .pid_file       = PID_DEFAULT,
   .poolsize       = "/proc/sys/kernel/random/poolsize",
-  .random_device  = "/dev/entropy/random",
-//  .random_device  = "/dev/random",
+//  .random_device  = "/dev/entropy/random",
+  .random_device  = "/dev/random",
   .sample_in      = INPUT_DEFAULT,
   .sample_out     = OUTPUT_DEFAULT,
   .verbose        = 0,
@@ -695,12 +695,13 @@ static void run_daemon(    /* RETURN: nothing   */
 //   set_low_watermark(2048);
 
    struct stat status = { 0 };
+
 //1
-   if( stat("/dev/entropy", &status) != 0 ) mkdir( "/dev/entropy", 0770 );
+//   if( stat("/dev/entropy", &status) != 0 ) mkdir( "/dev/entropy", 0770 );
 
    while( stat(params->random_device, &status) != 0 ) { 
 	   //2
-      mknod( params->random_device, S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, makedev(1,8) );
+//      mknod( params->random_device, S_IFCHR|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, makedev(1,8) );
 	   sleep(1);
    } 
 	
@@ -716,7 +717,8 @@ static void run_daemon(    /* RETURN: nothing   */
 	   sleep(1);
    }
 //3
-   fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+//   fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+   fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 	
   output = (struct rand_pool_info *) h->io_buf;
 
@@ -817,7 +819,7 @@ static void run_daemon(    /* RETURN: nothing   */
 	  timeout.tv_sec = 1;
       timeout.tv_usec = 0;
 		
-		   threshold=256;
+		   threshold=3584;
 /*		
 		if ( fp != NULL ) { fp = NULL; }
 
@@ -866,8 +868,9 @@ static void run_daemon(    /* RETURN: nothing   */
 
 //         int rc = select(random_fd+1, NULL, &write_fd, NULL, NULL);
          int rc = select(random_fd+1, NULL, &write_fd, NULL, &timeout);
-         if ( rc > 0 ) break;
-		 if ( ( rc == 0 ) && ( sleeping == 1 ) ) continue; 
+         if ( rc >= 0 ) break;
+//       if ( rc > 0 ) break;
+//		 if ( ( rc == 0 ) && ( sleeping == 1 ) ) continue; 
          if (errno != EINTR)
 //            error_exit("Select error: %s", strerror(errno));
 			 goto carry_on;
