@@ -47,6 +47,7 @@ static void set_watermark(int level);
 #ifdef __ANDROID__
 
 static void write_file( char file_name[], char value[] );
+static void read_file( char file_name[] );
 
 #include <linux/ioprio.h>
 #include <pthread.h>
@@ -193,8 +194,10 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/overcommit_memory","1");					
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
-				  set_low_watermark(3584); /* READ */
-				  set_watermark(3584); /* WRITE */
+				  set_low_watermark(4096); /* READ */
+				  set_watermark(4096); /* WRITE */
+				  read_file("/proc/sys/kernel/random/entropy_avail");
+				  read_file("/dev/random");
 				  governor_ondemand();
 				}
 			fclose(fp);
@@ -211,8 +214,10 @@ void *fn_sleep (void *ret)
 //				fseek ( fp , 0, SEEK_SET );                        	
 	            buffer = fgetc(fp);
 		  		sleeping=0;			
-				 set_low_watermark(3584); /* READ */
-				 set_watermark(3584); /* WRITE */
+				 set_low_watermark(4096); /* READ */
+				 set_watermark(4096); /* WRITE */
+				 read_file("/proc/sys/kernel/random/entropy_avail");
+				 read_file("/dev/random");
 				 governor_interactive();
 //				 set_low_watermark(4064);
 //				 set_watermark(4000);
@@ -681,8 +686,8 @@ static void run_daemon(    /* RETURN: nothing   */
 
 //	set_watermark(0);
 	//Write
-	int threshold = 3584;
-	set_watermark(3584);
+	int threshold = 4096;
+	set_watermark(4096);
 //	set_watermark(1024);
 //	set_watermark(2048);
 	
@@ -690,7 +695,7 @@ static void run_daemon(    /* RETURN: nothing   */
 //   set_low_watermark(8);
 	//Read
 //   set_low_watermark(512);
-   set_low_watermark(3584);
+   set_low_watermark(4096);
 //   set_low_watermark(4096);
 //   set_low_watermark(2048);
 
@@ -718,7 +723,8 @@ static void run_daemon(    /* RETURN: nothing   */
    }
 //3
 //   fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
-   fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+//   fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+   fchmod(random_fd,S_IRUSR|S_IRGRP|S_IROTH);
 	
   output = (struct rand_pool_info *) h->io_buf;
 
@@ -810,7 +816,7 @@ static void run_daemon(    /* RETURN: nothing   */
 //      timeout.tv_usec = 0;
       timeout.tv_usec = 333333;
 	   
-	  threshold = 3584;
+	  threshold = 4096;
 #ifdef __ANDROID__
 	   if ( sleeping == 1 ) {
 		wait_time = 30000;
@@ -819,7 +825,7 @@ static void run_daemon(    /* RETURN: nothing   */
 	  timeout.tv_sec = 1;
       timeout.tv_usec = 0;
 		
-		   threshold=3584;
+		   threshold=4096;
 /*		
 		if ( fp != NULL ) { fp = NULL; }
 
@@ -834,9 +840,9 @@ static void run_daemon(    /* RETURN: nothing   */
 //	    usleep(10000);
 
 	} else {		   
-		   timeout.tv_sec = 0;
-//		   timeout.tv_usec = 0;
-		   timeout.tv_usec = 333333;
+		   timeout.tv_sec = 1;
+		   timeout.tv_usec = 0;
+//		   timeout.tv_usec = 333333;
 	}
 #endif
 
@@ -947,6 +953,23 @@ static void write_file( char file_name[], char value[] )
       fprintf(wm_fh, "%s\n", value);                                                                                                 
       fclose(wm_fh);
       }
+}
+
+/**
+ * Read File
+ */
+static void read_file( char file_name[] )              
+{
+	
+   int fd = open(file_name, O_RDONLY|O_NOCTTY|O_NONBLOCK);
+
+//   int rc = utimensat(AT_FDCWD,file_name,NULL,0);
+
+//   int rc = futimens(file_name,NULL);
+   
+   int rc = utime(file_name,NULL);
+	   
+   if ( fd >= 0 ) close(fd);
 }
 
 #endif
