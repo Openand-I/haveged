@@ -55,8 +55,8 @@ int sleeping=0;
 
 void governor_ondemand()
 {
-				  system("/system/bin/setprop debug.composition.type cpu");
-				  system("/system/bin/setprop persist.sys.composition.type cpu");
+				  system("/system/bin/setprop debug.composition.type gpu");
+				  system("/system/bin/setprop persist.sys.composition.type gpu");
 						 
 				  write_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor","ondemand");
 				  write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","ondemand");
@@ -184,6 +184,8 @@ void *fn_sleep (void *ret)
         	    buffer = fgetc(fp);
 				if ( buffer == 's' ) {
 			      sleeping=1;                       
+				  unlink("AWAKE");
+				  write_file("SLEEPING","1");
 				  sync();
 				  write_file("/proc/sys/vm/drop_caches","1");
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
@@ -194,11 +196,11 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/overcommit_memory","1");					
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
-				  set_low_watermark(4096); /* READ */
-				  set_watermark(4096); /* WRITE */
+				  set_low_watermark(4000); /* READ */
+				  set_watermark(4000); /* WRITE */
 				  read_file("/proc/sys/kernel/random/entropy_avail");
 				  read_file("/dev/random");
-				  governor_ondemand();
+				  governor_interactive();
 				}
 			fclose(fp);
             }
@@ -213,15 +215,17 @@ void *fn_sleep (void *ret)
 			    buffer='o';
 //				fseek ( fp , 0, SEEK_SET );                        	
 	            buffer = fgetc(fp);
-		  		sleeping=0;			
-				 set_low_watermark(4096); /* READ */
-				 set_watermark(4096); /* WRITE */
+		  		sleeping=0;
+				  unlink("SLEEPING");
+				  write_file("AWAKE","1");
+				 set_low_watermark(4000); /* READ */
+				 set_watermark(4000); /* WRITE */
 				 read_file("/proc/sys/kernel/random/entropy_avail");
 				 read_file("/dev/random");
 				 governor_interactive();
-//				 set_low_watermark(4064);
+//				 set_low_watermark(4000);
 //				 set_watermark(4000);
-//				 set_low_watermark(4096);
+//				 set_low_watermark(4000);
 //				 set_watermark(1024);
 //				 set_low_watermark(8);
 //				 set_watermark(320);				
@@ -686,8 +690,8 @@ static void run_daemon(    /* RETURN: nothing   */
 
 //	set_watermark(0);
 	//Write
-	int threshold = 4096;
-	set_watermark(4096);
+	int threshold = 4000;
+	set_watermark(threshold);
 //	set_watermark(1024);
 //	set_watermark(2048);
 	
@@ -695,8 +699,8 @@ static void run_daemon(    /* RETURN: nothing   */
 //   set_low_watermark(8);
 	//Read
 //   set_low_watermark(512);
-   set_low_watermark(4096);
-//   set_low_watermark(4096);
+   set_low_watermark(threshold);
+//   set_low_watermark(4000);
 //   set_low_watermark(2048);
 
    struct stat status = { 0 };
@@ -716,7 +720,7 @@ static void run_daemon(    /* RETURN: nothing   */
 	
    random_fd = -1;
    while ( random_fd < 0 ) {
-       random_fd = open(params->random_device, O_RDWR|O_ASYNC|O_NOATIME|O_NONBLOCK); 
+       random_fd = open(params->random_device, O_RDWR|O_ASYNC|01000000|O_NONBLOCK); 
 	   if ( random_fd >= 0 ) break;
 //       close(random_fd);
 	   sleep(1);
@@ -766,7 +770,7 @@ static void run_daemon(    /* RETURN: nothing   */
 //	  nbytes = (poolSize - current) / 8;
 //	  nbytes = (params->low_water - current) / 8;
 //	  nbytes = (4000 - current) / 8;
-//	  nbytes = (4096 - current) / 8;
+//	  nbytes = (4000 - current) / 8;
 	  nbytes = 1;
 //	  nbytes = 11;
 /*
@@ -816,7 +820,7 @@ static void run_daemon(    /* RETURN: nothing   */
 //      timeout.tv_usec = 0;
       timeout.tv_usec = 333333;
 	   
-	  threshold = 4096;
+	  threshold = 4000;
 #ifdef __ANDROID__
 	   if ( sleeping == 1 ) {
 		wait_time = 30000;
@@ -825,7 +829,7 @@ static void run_daemon(    /* RETURN: nothing   */
 	  timeout.tv_sec = 1;
       timeout.tv_usec = 0;
 		
-		   threshold=4096;
+		   threshold=4000;
 /*		
 		if ( fp != NULL ) { fp = NULL; }
 
@@ -995,7 +999,7 @@ static void error_exit(    /* RETURN: nothing   */
    const char *format,     /* IN: msg format    */
    ...)                    /* IN: varadic args  */
 {
-   char buffer[4096];
+   char buffer[4000];
 
    va_list ap;
    va_start(ap, format);
