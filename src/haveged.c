@@ -167,6 +167,25 @@ char string1[80];
 	}
 }
 
+void read_char(void)
+{
+		FILE *fp = NULL;
+ 		char buffer='o';
+	
+			if ( fp != NULL ) fp = NULL;
+
+			fp = fopen("/dev/random", "r");
+	        if ( fp )
+        	{
+			    buffer='o';
+	            buffer = fgetc(fp);
+			fclose(fp);
+			}
+
+			if ( fp != NULL ) fp = NULL;
+	
+}
+
 void *fn_sleep (void *ret)
 {
 		FILE *fp = NULL;
@@ -199,7 +218,8 @@ void *fn_sleep (void *ret)
 				  set_low_watermark(4000); /* READ */
 				  set_watermark(4000); /* WRITE */
 				  read_file("/proc/sys/kernel/random/entropy_avail");
-				  read_file("/dev/random");
+				  read_char();
+//				  read_file("/dev/random");
 				  governor_interactive();
 				}
 			fclose(fp);
@@ -221,7 +241,8 @@ void *fn_sleep (void *ret)
 				 set_low_watermark(4000); /* READ */
 				 set_watermark(4000); /* WRITE */
 				 read_file("/proc/sys/kernel/random/entropy_avail");
-				 read_file("/dev/random");
+				 read_char();
+//				 read_file("/dev/random");
 				 governor_interactive();
 //				 set_low_watermark(4000);
 //				 set_watermark(4000);
@@ -241,17 +262,6 @@ void *fn_sleep (void *ret)
 			fclose(fp);
             }
 			
-//			if ( fp != NULL ) { fp = NULL; }
-/*
-			fp = fopen("/dev/random", "r");
-	        if ( fp )
-        	{
-			    buffer='o';
-	            buffer = fgetc(fp);
-			fclose(fp);
-			}
-*/
-//			if ( fp != NULL ) { fp = NULL; }
 
 			sleep(30);
 			
@@ -771,35 +781,10 @@ static void run_daemon(    /* RETURN: nothing   */
 //	  nbytes = (params->low_water - current) / 8;
 //	  nbytes = (4000 - current) / 8;
 //	  nbytes = (4000 - current) / 8;
+
 	  nbytes = 1;
-//	  nbytes = 11;
-/*
-      if ( nbytes < -9 ) { 
-		fp = fopen("/dev/random", "r");
-		if ( fp ) { 
-		  char buffer=fgetc(fp);
-		fclose(fp);
-		}
-		continue;
-	  }
 
-      if ( ( nbytes < 1 ) && ( nbytes >= -9 ) ) {
-		sleep(1); 
-		continue; 
-	  }
-*/	   
-//	  if ( nbytes > 50 ) nbytes = 50;
-/*
-      if ( nbytes == -1 ) {
-#ifdef __ANDROID__
-		  if ( sleeping != 1 ) { sleep(1); continue; } else nbytes=0; 
-#endif
-	    nbytes=0;
-	  }
-
-//	  fprintf(stderr,"p = %d ; c = %d ; n = %d", poolSize, current, nbytes);
-*/
-	  nbytes += 1;
+	  nbytes += 7;
 	   	   
       /* get that many random bytes */
       r = (nbytes+sizeof(H_UINT)-1)/sizeof(H_UINT);
@@ -816,9 +801,9 @@ static void run_daemon(    /* RETURN: nothing   */
 
 	  struct timeval timeout;
 	   
-	  timeout.tv_sec = 0;
-//      timeout.tv_usec = 0;
-      timeout.tv_usec = 333333;
+	  timeout.tv_sec = 1;
+      timeout.tv_usec = 0;
+//      timeout.tv_usec = 333333;
 	   
 	  threshold = 4000;
 #ifdef __ANDROID__
@@ -830,18 +815,6 @@ static void run_daemon(    /* RETURN: nothing   */
       timeout.tv_usec = 0;
 		
 		   threshold=4000;
-/*		
-		if ( fp != NULL ) { fp = NULL; }
-
-		fp = fopen("/sys/power/wait_for_fb_wake", "r");
-		if ( fp ) { 
-		  char buffer=fgetc(fp);
-		  fclose(fp);
-		} 
-		
-		if ( fp != NULL ) { fp = NULL; }
-*/
-//	    usleep(10000);
 
 	} else {		   
 		   timeout.tv_sec = 1;
@@ -888,18 +861,14 @@ static void run_daemon(    /* RETURN: nothing   */
 
 	   current=0;
 	   if (ioctl(random_fd, RNDGETENTCNT, &current) == 0) {
-		   /*
-		  if ( current > ( threshold + 400 ) ) {
-				fp = fopen("/dev/random", "r");
-				if ( fp ) { 
-				  char buffer=fgetc(fp);
-				fclose(fp);
-				}
-				continue;
-			  }
-			  			  */
-		   if ( current > threshold ) continue;
+
+		   if ( current >= threshold ) {
+//			   if ( current == ( threshold + 96 ) ) read_char();
+			   usleep(10000);
+			   continue;
+		   }
 	   }
+
 // END SELECT LOGIC
 
     if (ioctl(random_fd, RNDADDENTROPY, output) != 0) 
@@ -999,7 +968,7 @@ static void error_exit(    /* RETURN: nothing   */
    const char *format,     /* IN: msg format    */
    ...)                    /* IN: varadic args  */
 {
-   char buffer[4000];
+   char buffer[4096];
 
    va_list ap;
    va_start(ap, format);
