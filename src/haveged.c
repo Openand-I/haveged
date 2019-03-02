@@ -194,8 +194,9 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/vfs_cache_pressure","0");
 				  write_file("/proc/sys/vm/dirty_ratio","100");
 				  write_file("/proc/sys/vm/dirty_background_ratio","100");
-				  write_file("/proc/sys/vm/overcommit_ratio","50");
-				  write_file("/proc/sys/vm/overcommit_memory","1");					
+//				  write_file("/proc/sys/vm/overcommit_ratio","49");
+//				  write_file("/proc/sys/vm/overcommit_ratio","51");
+//				  write_file("/proc/sys/vm/overcommit_memory","1");					
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
 				  set_low_watermark(threshold); /* READ */
@@ -250,8 +251,9 @@ void *fn_sleep (void *ret)
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1");
 				 write_file("/proc/sys/vm/dirty_ratio","99");
 				 write_file("/proc/sys/vm/dirty_background_ratio","1");
-				 write_file("/proc/sys/vm/overcommit_ratio","49");
-				 write_file("/proc/sys/vm/overcommit_memory","1");					
+//				 write_file("/proc/sys/vm/overcommit_ratio","51");
+//				 write_file("/proc/sys/vm/overcommit_ratio","49");
+//				 write_file("/proc/sys/vm/overcommit_memory","1");					
 			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
 			     write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
 			fclose(fp);
