@@ -47,7 +47,7 @@ static void set_watermark(int level);
 static void write_file( char file_name[], char value[] );
 static void read_file( char file_name[] );
 void read_char(void);
-int threshold=4000;
+int threshold=3968;
 
 #ifdef __ANDROID__
 
@@ -57,8 +57,8 @@ int sleeping=0;
 
 void governor_ondemand()
 {
-				  system("/system/bin/setprop debug.composition.type gpu");
-				  system("/system/bin/setprop persist.sys.composition.type gpu");
+				  system("/system/bin/setprop debug.composition.type cpu");
+				  system("/system/bin/setprop persist.sys.composition.type cpu");
 						 
 				  write_file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor","ondemand");
 				  write_file("/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor","ondemand");
@@ -174,29 +174,35 @@ void *fn_sleep (void *ret)
 		FILE *fp = NULL;
         char buffer='o';
 
+		int fin, fout;
+		char input[10];
+	
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 
         while (1)
         {
-			fp = fopen("/sys/power/wait_for_fb_sleep", "r");
-        	if ( fp )
-        	{
+//			fp = fopen("/sys/power/wait_for_fb_sleep", "r");
+//        	if ( fp )
+       		fin = open("/sys/power/wait_for_fb_sleep", O_RDONLY|O_ASYNC|01000000); 
+			if ( fin >= 0 ) 
+			{
 			    buffer='o';
-//				fseek ( fp , 0, SEEK_SET );
-        	    buffer = fgetc(fp);
-				if ( buffer == 's' ) {
+//        	    buffer = fgetc(fp);
+				read(fin,input,1);
+//				if ( buffer == 's' ) {
 			      sleeping=1;                       
 				  unlink("AWAKE");
 				  write_file("SLEEPING","1");
 				  sync();
 				  write_file("/proc/sys/vm/drop_caches","1");
-			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
+//			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
+			  	 write_file("/proc/sys/vm/vfs_cache_pressure","10000");
 				  write_file("/proc/sys/vm/vfs_cache_pressure","0");
 				  write_file("/proc/sys/vm/dirty_ratio","100");
 				  write_file("/proc/sys/vm/dirty_background_ratio","100");
-				  write_file("/proc/sys/vm/overcommit_ratio","49");
-				  write_file("/proc/sys/vm/overcommit_ratio","51");
-				  write_file("/proc/sys/vm/overcommit_memory","1");					
+//				  write_file("/proc/sys/vm/overcommit_ratio","49");
+//				  write_file("/proc/sys/vm/overcommit_ratio","50");
+//				  write_file("/proc/sys/vm/overcommit_memory","1");					
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
 				  write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
 				  set_low_watermark(threshold); /* READ */
@@ -211,20 +217,20 @@ void *fn_sleep (void *ret)
 				  read_char();
 				  read_file("/dev/random");
 				  governor_ondemand();
-				}
-			fclose(fp);
+//				}
+//			fclose(fp);
+			close(fin);
             }
 			
-//			if ( fp != NULL ) { fp = NULL; }
-			
-//			sleep(1);
-
-			fp = fopen("/sys/power/wait_for_fb_wake", "r");
-	        if ( fp )
+//			fp = fopen("/sys/power/wait_for_fb_wake", "r");
+//	        if ( fp )
+       		fout = open("/sys/power/wait_for_fb_wake", O_RDONLY|O_ASYNC|01000000); 
+			if ( fout >= 0 ) 
         	{
 			    buffer='o';
-//				fseek ( fp , 0, SEEK_SET );                        	
-	            buffer = fgetc(fp);
+//	            buffer = fgetc(fp);
+				read(fout,input,1);
+
 		  		sleeping=0;
 				  unlink("SLEEPING");
 				  write_file("AWAKE","1");
@@ -247,16 +253,18 @@ void *fn_sleep (void *ret)
 //				 set_low_watermark(8);
 //				 set_watermark(320);				
 //				  write_file("/proc/sys/vm/drop_caches","1");
-			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
-			  	 write_file("/proc/sys/vm/vfs_cache_pressure","5");
+			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1");
+//			  	 write_file("/proc/sys/vm/vfs_cache_pressure","9000000000");
+			  	 write_file("/proc/sys/vm/vfs_cache_pressure","10000");
 				 write_file("/proc/sys/vm/dirty_ratio","99");
 				 write_file("/proc/sys/vm/dirty_background_ratio","1");
-				 write_file("/proc/sys/vm/overcommit_ratio","51");
-				 write_file("/proc/sys/vm/overcommit_ratio","49");
-				 write_file("/proc/sys/vm/overcommit_memory","1");					
+//				 write_file("/proc/sys/vm/overcommit_ratio","51");
+//				 write_file("/proc/sys/vm/overcommit_ratio","50");
+//				 write_file("/proc/sys/vm/overcommit_memory","1");					
 			  	 write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
 			     write_file("/proc/sys/net/ipv4/tcp_timestamps","0");
-			fclose(fp);
+//			fclose(fp);
+			close(fout);
             }
 			
 			sleep(30);
@@ -300,7 +308,7 @@ static struct pparams defaults = {
   .os_rel         = "/proc/sys/kernel/osrelease",
   .pid_file       = PID_DEFAULT,
   .poolsize       = "/proc/sys/kernel/random/poolsize",
-//  .random_device  = "/dev/entropy/random",
+//  .random_device  = "/dev/entropy/urandom",
   .random_device  = "/dev/random",
   .sample_in      = INPUT_DEFAULT,
   .sample_out     = OUTPUT_DEFAULT,
@@ -708,7 +716,9 @@ static void run_daemon(    /* RETURN: nothing   */
    set_low_watermark(threshold);
 //   set_low_watermark(4000);
 //   set_low_watermark(2048);
-
+really_carry_on:
+	;;
+	
    struct stat status = { 0 };
 
 //1
@@ -750,10 +760,15 @@ static void run_daemon(    /* RETURN: nothing   */
 	
    int count=0; int wait_time=10000; int ret=0;
       fd_set write_fd;
-	  
+
+	  struct timeval timeout;
+	   
+	  int current,nbytes,r,rc;
+	   
+	nbytes = 8; // 12 / 16
+	
    for(;;) { 
 	   	   
-	  int current,nbytes,r;
 /*	   
       count=1;
       for(count=1;count <= 1;count++) {
@@ -777,45 +792,27 @@ static void run_daemon(    /* RETURN: nothing   */
 //	  nbytes = (params->low_water - current) / 8;
 //	  nbytes = (4000 - current) / 8;
 //	  nbytes = (4000 - current) / 8;
-
-	  nbytes = 1;
-
-	  nbytes += 7;
 	   	   
       /* get that many random bytes */
       r = (nbytes+sizeof(H_UINT)-1)/sizeof(H_UINT);
       if (havege_rng(h, (H_UINT *)output->buf, r)<1) { 
 		  usleep(1000000); 
-#ifdef __ANDROID__
-		  if ( sleeping != 1 ) { sleep(1); continue; } 
-#endif
 	  }
 
       output->buf_size = nbytes;
       /* entropy is 8 bits per byte */
       output->entropy_count = nbytes * 8;
 
-	  struct timeval timeout;
-	   
-	  timeout.tv_sec = 1;
-      timeout.tv_usec = 0;
-//      timeout.tv_usec = 333333;
-	   
 #ifdef __ANDROID__
 	   if ( sleeping == 1 ) {
 		wait_time = 30000;
 	  
-//	  timeout.tv_sec = 300;
-	  timeout.tv_sec = 1;
+	  timeout.tv_sec = 4;
       timeout.tv_usec = 0;
 		
-	} else {		   
-		   timeout.tv_sec = 1;
-		   timeout.tv_usec = 0;
-//		   timeout.tv_usec = 333333;
-	}
+	} 
 #endif
-
+	   
 /*	   
 // FOLLOWING IS RANDOM DEVICE
 	   
@@ -840,17 +837,23 @@ static void run_daemon(    /* RETURN: nothing   */
       FD_ZERO(&write_fd);
       FD_SET(random_fd, &write_fd);	  
 	   
+	   count=1;
       for(;;)  {
 
-//         int rc = select(random_fd+1, NULL, &write_fd, NULL, NULL);
-         int rc = select(random_fd+1, NULL, &write_fd, NULL, &timeout);
-
-		 if ( rc >= 0 ) break;
-//       if ( rc > 0 ) break;
+//       int rc = select(random_fd+1, NULL, &write_fd, NULL, NULL);
+         rc = select(random_fd+1, NULL, &write_fd, NULL, &timeout);
+//Timeout
+		 if ( rc > 0 ) {  count = 0; break; }
+		  			  
+//Normal		  
+         if ( rc == 0 ) { count = 1 ; break; }
+		  
 //		 if ( ( rc == 0 ) && ( sleeping == 1 ) ) continue; 
-         if (errno != EINTR)
+//         if (errno != EINTR) { count = 2 ; goto carry_on; } 
+//         if ( rc < 0 ) { count = 2 ; sleep(7); close(random_fd); sleep(7); goto really_carry_on; }
+         if ( rc < 0 ) { count = 2 ; usleep(100000); goto carry_on; }
 //            error_exit("Select error: %s", strerror(errno));
-			 goto carry_on;
+	      	
          }
 
 // END SELECT LOGIC
@@ -858,22 +861,34 @@ static void run_daemon(    /* RETURN: nothing   */
 	   current=0;
 	   if (ioctl(random_fd, RNDGETENTCNT, &current) == 0) {
 //		   if ( current >= ( threshold - 96 ) ) {
-		   if ( current >= ( threshold + 64 ) ) {
-//		   if ( current >= threshold ) {
+		   if ( current >= threshold ) {
+//		   if ( current >= ( poolsize - 8 ) ) {
 //			   if ( current >= ( threshold + 96 ) ) read_file("/dev/random");
 			   usleep(100000);
-			   continue;
+			   count = 0;
+			   goto carry_on;
 		   }			
-		}
 
     if (ioctl(random_fd, RNDADDENTROPY, output) != 0) 
 	  usleep(1000000);
 
+		}
+
 //	  if ( fp != NULL ) { fclose(fp); fp = NULL; }
 
 carry_on:
-	
-	   ;;
+	   
+	   if ( count == 0 ) {
+		   nbytes=8;
+//		   nbytes == 8 ? ( nbytes=9 ) : ( nbytes=8 );
+		   timeout.tv_sec = 0; timeout.tv_usec = 100000;
+	   }
+	   else
+	   {
+		  nbytes == 14 ? ( nbytes=15 ) : ( nbytes=14 );
+ 		  timeout.tv_sec = 1; timeout.tv_usec = 0;
+	   }
+
 //	usleep(1000); 
 
     }
