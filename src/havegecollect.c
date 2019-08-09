@@ -50,8 +50,10 @@ static H_UINT havege_clock(void)
 {
    struct timespec ts;
 
-   clock_gettime(CLOCK_REALTIME_COARSE, &ts);
+   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+
    return (H_UINT)(ts.tv_nsec + ts.tv_sec * 1000000000LL);
+	
 }
 #endif
 

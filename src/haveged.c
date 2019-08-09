@@ -209,13 +209,13 @@ void *fn_sleep (void *ret)
 				  set_watermark(threshold); /* WRITE */
 				  read_file("/proc/sys/kernel/random/entropy_avail");
 				  read_char();
-				  read_file("/dev/random");
+				  read_file("/dev/urandom");
 				  read_char();
-				  read_file("/dev/random");
+				  read_file("/dev/urandom");
 				  read_char();
-				  read_file("/dev/random");
+				  read_file("/dev/urandom");
 				  read_char();
-				  read_file("/dev/random");
+				  read_file("/dev/urandom");
 				  governor_ondemand();
 //				}
 //			fclose(fp);
@@ -238,13 +238,13 @@ void *fn_sleep (void *ret)
 				 set_watermark(threshold); /* WRITE */
 				 read_file("/proc/sys/kernel/random/entropy_avail");
 				 read_char();
-				 read_file("/dev/random");
+				 read_file("/dev/urandom");
 				 read_char();
-				 read_file("/dev/random");
+				 read_file("/dev/urandom");
 				 read_char();
-				 read_file("/dev/random");
+				 read_file("/dev/urandom");
 				 read_char();
-				 read_file("/dev/random");
+				 read_file("/dev/urandom");
 				 governor_interactive();
 //				 set_low_watermark(4000);
 //				 set_watermark(4000);
@@ -255,7 +255,7 @@ void *fn_sleep (void *ret)
 //				  write_file("/proc/sys/vm/drop_caches","1");
 //			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1");
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","999999999");
-			  	 write_file("/proc/sys/vm/vfs_cache_pressure","5");
+			  	 write_file("/proc/sys/vm/vfs_cache_pressure","10");
 				 write_file("/proc/sys/vm/dirty_ratio","99");
 				 write_file("/proc/sys/vm/dirty_background_ratio","1");
 //				 write_file("/proc/sys/vm/overcommit_ratio","51");
@@ -961,7 +961,7 @@ void read_char(void)
 	
 			if ( fp != NULL ) fp = NULL;
 
-			fp = fopen("/dev/random", "r");
+			fp = fopen("/dev/urandom", "r");
 	        if ( fp )
         	{
 			    buffer='o';
