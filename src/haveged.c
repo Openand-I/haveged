@@ -209,13 +209,13 @@ void *fn_sleep (void *ret)
 				  set_watermark(threshold); /* WRITE */
 				  read_file("/proc/sys/kernel/random/entropy_avail");
 				  read_char();
-				  read_file("/dev/urandom");
+				  read_file("/dev/random");
 				  read_char();
-				  read_file("/dev/urandom");
+				  read_file("/dev/random");
 				  read_char();
-				  read_file("/dev/urandom");
+				  read_file("/dev/random");
 				  read_char();
-				  read_file("/dev/urandom");
+				  read_file("/dev/random");
 				  governor_ondemand();
 //				}
 //			fclose(fp);
@@ -238,13 +238,13 @@ void *fn_sleep (void *ret)
 				 set_watermark(threshold); /* WRITE */
 				 read_file("/proc/sys/kernel/random/entropy_avail");
 				 read_char();
-				 read_file("/dev/urandom");
+				 read_file("/dev/random");
 				 read_char();
-				 read_file("/dev/urandom");
+				 read_file("/dev/random");
 				 read_char();
-				 read_file("/dev/urandom");
+				 read_file("/dev/random");
 				 read_char();
-				 read_file("/dev/urandom");
+				 read_file("/dev/random");
 				 governor_interactive();
 //				 set_low_watermark(4000);
 //				 set_watermark(4000);
@@ -308,8 +308,11 @@ static struct pparams defaults = {
   .os_rel         = "/proc/sys/kernel/osrelease",
   .pid_file       = PID_DEFAULT,
   .poolsize       = "/proc/sys/kernel/random/poolsize",
-//  .random_device  = "/dev/entropy/urandom",
-  .random_device  = "/dev/urandom",
+#ifdef __ANDROID__
+  .random_device  = "/dev/random",
+#else
+  .random_device  = "/dev/random",
+#endif
   .sample_in      = INPUT_DEFAULT,
   .sample_out     = OUTPUT_DEFAULT,
   .verbose        = 0,
@@ -744,7 +747,7 @@ really_carry_on:
 //3
 //   fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
 //   fchmod(random_fd,S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
-   fchmod(random_fd,S_IRUSR|S_IRGRP|S_IROTH);
+//   fchmod(random_fd,S_IRUSR|S_IRGRP|S_IROTH);
 	
   output = (struct rand_pool_info *) h->io_buf;
 
@@ -961,7 +964,7 @@ void read_char(void)
 	
 			if ( fp != NULL ) fp = NULL;
 
-			fp = fopen("/dev/urandom", "r");
+			fp = fopen("/dev/random", "r");
 	        if ( fp )
         	{
 			    buffer='o';
