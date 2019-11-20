@@ -46,13 +46,13 @@
 /**
  * Provide a generic timer fallback
  */
-static uint64_t havege_clock(void)
+static H_UINT havege_clock(void)
 {
    struct timespec ts;
 
    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
 
-   return (uint64_t)(ts.tv_nsec + ts.tv_sec * 1000000000LL);
+   return (H_UINT)(ts.tv_nsec + ts.tv_sec * 1000000000LL);
 	
 }
 #endif
