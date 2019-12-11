@@ -255,7 +255,7 @@ void *fn_sleep (void *ret)
 //				  write_file("/proc/sys/vm/drop_caches","1");
 //			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1");
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","999999999");
-			  	 write_file("/proc/sys/vm/vfs_cache_pressure","10");
+			  	 write_file("/proc/sys/vm/vfs_cache_pressure","5");
 				 write_file("/proc/sys/vm/dirty_ratio","99");
 				 write_file("/proc/sys/vm/dirty_background_ratio","1");
 //				 write_file("/proc/sys/vm/overcommit_ratio","51");
@@ -761,11 +761,12 @@ really_carry_on:
       
 //   ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE,7));
 	
-   int count=0; int wait_time=10000; int ret=0;
+   int count=0; int wait_time=15000; int ret=0;
       fd_set write_fd;
 
 	  struct timeval timeout;
-	   
+	  timeout.tv_sec = 0; timeout.tv_usec = 150000;
+
 	  int current,nbytes,r,rc;
 	   
 	nbytes = 8; // 12 / 16
@@ -810,7 +811,7 @@ really_carry_on:
 	   if ( sleeping == 1 ) {
 		wait_time = 30000;
 	  
-	  timeout.tv_sec = 4;
+	  timeout.tv_sec = 300;
       timeout.tv_usec = 0;
 		
 	} 
@@ -828,9 +829,9 @@ really_carry_on:
 	      if ( ret > 0 && pfdout[0].revents & POLLOUT ) { ret = 1 ; break; } else sleep(1000);
 	  }	  	  
 
-	if ( ret == 0 && wait_time == 10000 ) { wait_time = 30000 ; continue; }
+	if ( ret == 0 && wait_time == 15000 ) { wait_time = 30000 ; continue; }
 
-	if ( ret > 0 ) wait_time = 10000;
+	if ( ret > 0 ) wait_time = 15000;
 	   	   
 // END RANDOM DEVICE LOGIC
 */	   
@@ -884,7 +885,7 @@ carry_on:
 	   if ( count == 0 ) {
 		   nbytes=8;
 //		   nbytes == 8 ? ( nbytes=9 ) : ( nbytes=8 );
-		   timeout.tv_sec = 0; timeout.tv_usec = 100000;
+		   timeout.tv_sec = 0; timeout.tv_usec = 150000;
 	   }
 	   else
 	   {
