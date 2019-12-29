@@ -259,7 +259,7 @@ void *fn_sleep (void *ret)
 //				  write_file("/proc/sys/vm/drop_caches","1");
 //			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1");
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","999999999");
-			  	 write_file("/proc/sys/vm/vfs_cache_pressure","999999999");
+			  	 write_file("/proc/sys/vm/vfs_cache_pressure","50");
 //			  	 write_file("/proc/sys/vm/vfs_cache_pressure","5");
 //			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1");
 //				 write_file("/proc/sys/vm/dirty_ratio","99");
