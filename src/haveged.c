@@ -201,8 +201,10 @@ void *fn_sleep (void *ret)
 				  write_file("/proc/sys/vm/dirty_background_bytes","100000");
 				  write_file("/proc/sys/vm/dirty_expire_centisecs","0");
 				  write_file("/proc/sys/vm/dirty_writeback_centisecs","0");
-				  write_file("/proc/sys/vm/vfs_cache_pressure","0");
 //				  write_file("/proc/sys/vm/overcommit_ratio","50");
+				  write_file("/proc/sys/vm/vfs_cache_pressure","0");
+				  write_file("/proc/sys/vm/swappiness","0");
+				  write_file("/proc/sys/vm/swappiness","10");
 //				  write_file("/proc/sys/vm/overcommit_ratio","49");
 //				  write_file("/proc/sys/vm/overcommit_memory","1");					
 				  write_file("/proc/sys/net/ipv4/icmp_echo_ignore_all","1");
@@ -259,7 +261,9 @@ void *fn_sleep (void *ret)
 //				  write_file("/proc/sys/vm/drop_caches","1");
 //			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1");
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","999999999");
-			  	 write_file("/proc/sys/vm/vfs_cache_pressure","50");
+			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1000");
+				 write_file("/proc/sys/vm/swappiness","0");
+				 write_file("/proc/sys/vm/swappiness","1");
 //			  	 write_file("/proc/sys/vm/vfs_cache_pressure","5");
 //			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1");
 //				 write_file("/proc/sys/vm/dirty_ratio","99");
