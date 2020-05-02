@@ -271,9 +271,9 @@ void *fn_sleep (void *ret)
 //				 write_file("/proc/sys/vm/dirty_expire_centisecs","1500");
 				  write_file("/proc/sys/vm/dirty_ratio","99");
 //				  write_file("/proc/sys/vm/dirty_bytes","10000");
-				  write_file("/proc/sys/vm/dirty_background_bytes","10000");
-				  write_file("/proc/sys/vm/dirty_expire_centisecs","1000");
-				  write_file("/proc/sys/vm/dirty_writeback_centisecs","500");
+				  write_file("/proc/sys/vm/dirty_background_bytes","10");
+				  write_file("/proc/sys/vm/dirty_expire_centisecs","100");
+				  write_file("/proc/sys/vm/dirty_writeback_centisecs","100");
 //				 write_file("/proc/sys/vm/overcommit_ratio","51");
 //				 write_file("/proc/sys/vm/overcommit_ratio","50");
 //				 write_file("/proc/sys/vm/overcommit_memory","1");					
