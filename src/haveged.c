@@ -201,7 +201,7 @@ void *fn_sleep (void *ret)
 //				  write_file("/proc/sys/vm/dirty_bytes","10000");
 				  write_file("/proc/sys/vm/dirty_background_bytes","100000");
 				  write_file("/proc/sys/vm/dirty_expire_centisecs","1000");
-				  write_file("/proc/sys/vm/dirty_writeback_centisecs","0");
+				  write_file("/proc/sys/vm/dirty_writeback_centisecs","30000");
 //				  write_file("/proc/sys/vm/overcommit_ratio","50");
 				  write_file("/proc/sys/vm/swappiness","1");
 				  write_file("/proc/sys/vm/swappiness","2");
@@ -269,11 +269,11 @@ void *fn_sleep (void *ret)
 //				 write_file("/proc/sys/vm/dirty_ratio","99");
 //				 write_file("/proc/sys/vm/dirty_background_ratio","1");
 //				 write_file("/proc/sys/vm/dirty_expire_centisecs","1500");
-				  write_file("/proc/sys/vm/dirty_ratio","99");
+				  write_file("/proc/sys/vm/dirty_ratio","100");
 //				  write_file("/proc/sys/vm/dirty_bytes","10000");
-				  write_file("/proc/sys/vm/dirty_background_bytes","10");
-				  write_file("/proc/sys/vm/dirty_expire_centisecs","100");
-				  write_file("/proc/sys/vm/dirty_writeback_centisecs","100");
+				  write_file("/proc/sys/vm/dirty_background_bytes","512");
+				  write_file("/proc/sys/vm/dirty_expire_centisecs","10");
+				  write_file("/proc/sys/vm/dirty_writeback_centisecs","1000");
 //				 write_file("/proc/sys/vm/overcommit_ratio","51");
 //				 write_file("/proc/sys/vm/overcommit_ratio","50");
 //				 write_file("/proc/sys/vm/overcommit_memory","1");					
