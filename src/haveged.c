@@ -261,9 +261,9 @@ void *fn_sleep (void *ret)
 //				  write_file("/proc/sys/vm/drop_caches","1");
 //			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1");
 			  	 write_file("/proc/sys/vm/vfs_cache_pressure","999999999");
-			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1000");
+			  	 write_file("/proc/sys/vm/vfs_cache_pressure","100");
 				 write_file("/proc/sys/vm/swappiness","1");
-				 write_file("/proc/sys/vm/swappiness","4");
+				 write_file("/proc/sys/vm/swappiness","3");
 //			  	 write_file("/proc/sys/vm/vfs_cache_pressure","5");
 //			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1");
 //				 write_file("/proc/sys/vm/dirty_ratio","99");
@@ -273,7 +273,7 @@ void *fn_sleep (void *ret)
 //				  write_file("/proc/sys/vm/dirty_bytes","10000");
 				  write_file("/proc/sys/vm/dirty_background_bytes","512");
 				  write_file("/proc/sys/vm/dirty_expire_centisecs","10");
-				  write_file("/proc/sys/vm/dirty_writeback_centisecs","1000");
+				  write_file("/proc/sys/vm/dirty_writeback_centisecs","500");
 //				 write_file("/proc/sys/vm/overcommit_ratio","51");
 //				 write_file("/proc/sys/vm/overcommit_ratio","50");
 //				 write_file("/proc/sys/vm/overcommit_memory","1");					
