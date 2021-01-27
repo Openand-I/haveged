@@ -269,10 +269,10 @@ void *fn_sleep (void *ret)
 //			  	 write_file("/proc/sys/vm/vfs_cache_pressure","1");
 //				 write_file("/proc/sys/vm/dirty_ratio","99");
 //				 write_file("/proc/sys/vm/dirty_expire_centisecs","1500");
-				 write_file("/proc/sys/vm/dirty_background_ratio","99");
-				  write_file("/proc/sys/vm/dirty_ratio","99");
-//				  write_file("/proc/sys/vm/dirty_bytes","8192");
-//				  write_file("/proc/sys/vm/dirty_background_bytes","8192");
+//				 write_file("/proc/sys/vm/dirty_background_ratio","99");
+//				  write_file("/proc/sys/vm/dirty_ratio","99");
+				  write_file("/proc/sys/vm/dirty_bytes","1048576");
+				  write_file("/proc/sys/vm/dirty_background_bytes","1048576");
 				  write_file("/proc/sys/vm/dirty_expire_centisecs","1000");
 				  write_file("/proc/sys/vm/dirty_writeback_centisecs","1000");
 //				 write_file("/proc/sys/vm/overcommit_ratio","51");
